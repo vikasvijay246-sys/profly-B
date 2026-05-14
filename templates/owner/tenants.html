@@ -74,10 +74,33 @@
           <input name="phone" class="form-input" placeholder="0712345678" required/>
           <span class="form-hint">Used to log in</span>
         </div>
-        <div class="form-group">
-          <label class="form-label">Password *</label>
+
+        <!-- new password field -->
+         <div class="form-group">
+  <label class="form-label">Password *</label>
+  
+  <!-- Wrap these two fields together -->
+  <!-- <div class="password-wrapper">
+    <input 
+      type="password" 
+      id="passwordField" 
+      name="password" 
+      class="form-input" 
+      placeholder="Min 6 chars" 
+      required
+    />
+  </div>
+  <button type="button" onclick="togglePw()" tabindex="-1">👁</button>
+  
+</div> -->
+
+<!-- sorry -->
+<div class="form-group">
+  <label class="form-label">Password *</label>
           <input type="password" name="password" class="form-input" placeholder="Min 6 chars" required/>
-        </div>
+          <button type="button" class="input-icon-btn" onclick="togglePw()" tabindex="-1" style="position: relative;left:90px;top: -25px;">👁</button>
+
+        </div> 
         <div class="form-group span-2">
           <label class="form-label">Address *</label>
           <input name="address" class="form-input" placeholder="123 Main Street, City, State - PIN" required/>
@@ -93,19 +116,10 @@
           <span class="form-hint">Photo ID or PDF (max 5MB)</span>
         </div>
         <div class="form-group span-2"><hr style="border:none;border-top:1px solid #e5e7eb;margin:4px 0"/></div>
-        <div class="form-group span-2" style="position: relative; overflow: visible; ">
+        <div class="form-group span-2">
           <label class="form-label">Designation / Occupation</label>
-          <select for="desi" name="designation" class="form-input" >
-            <option value="student">Student</option>
-            <option value="employee">Employee</option>
-            <option value="intern">Intern</option>
-            <option value="freelancer">Freelancer</option>
-            <option value="other" id="desi">Other</option>
-            <option value=""><input type="text" for="" name="designation" placeholder="Enter designation" class="form-input"/></option>
-          </select>
-          
-          <!-- <input type="text" name="designation"  value="" class="form-input" placeholder="Enter designation" style="margin-top:8px"/> -->
-          
+          <input type="text" name="designation" class="form-input" placeholder="e.g. Student, Developer, Freelancer" />
+          <span class="form-hint">Free text field visible in tenant profiles.</span>
         </div>
         <div class="form-group span-2">
           <label class="form-label">Assign to Property <span class="text-muted">(optional)</span></label>
@@ -185,6 +199,15 @@
 
 
 <script>
+  function togglePw() {
+    const pwField = document.querySelector('#addTenantModal input[name="password"]');
+    if (pwField.type === 'password') {
+      pwField.type = 'text';
+    } else {
+      pwField.type = 'password';
+    }
+  }
+  
 async function loadRoomsForAddTenant(propertyId) {
   const roomSel = document.getElementById('addTenantRoom');
   const hint = document.getElementById('roomVacancyHint');

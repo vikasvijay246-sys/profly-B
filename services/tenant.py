@@ -49,18 +49,21 @@ class TenantService(BaseService):
         designation = data.get("designation")
 
         tenant = User(
-            phone    = phone,
-            full_name= full_name,
-            role     = "tenant",
-            owner_id = owner_id,
-            address  = address,
-            designation=designation,
+            phone       = phone,
+            full_name   = full_name,
+            role        = "tenant",
+            owner_id    = owner_id,
+            address     = address,
+            designation = designation,
         )
         tenant.set_password(password)
 
         with self.transaction(f"create_tenant phone={phone}"):
             db.session.add(tenant)
             db.session.flush()   # populate tenant.id before commit
+            if not tenant.tenant_public_id:
+                from services.tenant_id import generate_tenant_public_id
+                tenant.tenant_public_id = generate_tenant_public_id()
 
         self.log.info(
             "Tenant created",
