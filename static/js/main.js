@@ -83,3 +83,47 @@ if (typeof socket !== 'undefined') {
 }
 // socket.on("new_message", function(msg) {console.log("New message received:", msg);appendMessage(msg);});
 
+async function toggleTenantStatus(tenantId) {
+  const statusField = document.getElementById('tenantStatus');
+  if (!statusField) {
+    return alert('Tenant status information is unavailable.');
+  }
+
+  const currentStatus = statusField.value === 'inactive' ? 'inactive' : 'active';
+  const targetValue = currentStatus === 'active' ? '0' : '1';
+  const actionLabel = currentStatus === 'active' ? 'Deactivate' : 'Reactivate';
+
+  if (currentStatus === 'active' && !confirm(
+      'Deactivate this tenant? This preserves payment history and room assignments but hides active tenant data from the dashboard.'
+  )) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/owner/tenants/${tenantId}/edit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      credentials: 'same-origin',
+      body: new URLSearchParams({ is_active: targetValue }).toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+      socket.emit('tenant_status_toggled', {
+        tenant_id: tenantId,
+        status: targetValue === '1' ? 'active' : 'inactive',
+      });
+    }
+
+    window.location.reload();
+  } catch (error) {
+    console.error('toggleTenantStatus error', error);
+    alert(`${actionLabel} failed. Please refresh and try again.`);
+  }
+}
+

@@ -45,9 +45,13 @@
           <td>
             <div class="action-btns">
               <button class="btn btn-ghost btn-xs" onclick='openEditTenant({{ t.to_dict()|tojson }})'>Edit</button>
-              <form method="POST" action="{{ url_for('owner.delete_tenant', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete {{ t.full_name }}? This cannot be undone.')">
-                <button class="btn btn-danger btn-xs">Delete</button>
+              {% if t.is_active %}
+              <form method="POST" action="{{ url_for('owner.delete_tenant', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Deactivate {{ t.full_name }}? This preserves history for reports.')">
+                <button class="btn btn-danger btn-xs">Deactivate</button>
               </form>
+              {% else %}
+              <button class="btn btn-secondary btn-xs" disabled>Inactive</button>
+              {% endif %}
             </div>
           </td>
         </tr>
