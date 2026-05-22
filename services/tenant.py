@@ -10,9 +10,11 @@ SAFETY RULES enforced here:
   4. Hard-delete only allowed by admin, with explicit flag
   5. Every write goes through self.transaction()
 """
+import uuid
 from datetime import timedelta
 from models import (db, User, Property, PropertyTenant, Room,
-                    Payment, RoomTenant, Notification, TenantTrash, now_utc)
+                    Payment, RoomTenant, Notification, TenantTrash,
+                    VacateRequest, now_utc)
 from services.base import BaseService
 from utils.errors import (
     ValidationError, NotFoundError, ConflictError, PermissionError_,
@@ -335,6 +337,148 @@ class TenantService(BaseService):
                    "tenancies_vacated": len(active_pts)},
         )
         return tenant
+
+    def _generate_vacate_request_id(self, tenant: User) -> str:
+        seed = tenant.tenant_public_id or tenant.phone or "TENANT"
+        code = ''.join([c for c in seed if c.isalnum()])[-6:].upper()
+        suffix = uuid.uuid4().hex[:8].upper()
+        return f"VAC-{code}-{suffix}"
+
+    def submit_vacate_request(self, tenant_id: int, vacate_date, reason: str | None = None):
+        tenant = User.query.filter_by(id=tenant_id, role="tenant").first()
+        if not tenant:
+            raise NotFoundError("Tenant", tenant_id)
+        if not tenant.is_active:
+            raise ValidationError("Cannot submit a vacate notice for an inactive tenant.")
+        if not tenant.owner_id:
+            raise ValidationError("Tenant owner information is missing.")
+
+        active_room = RoomTenant.query.filter_by(tenant_id=tenant_id, is_active=True).first()
+        if not active_room:
+            raise ValidationError("No active room assignment found. Contact your property owner.")
+
+        existing = VacateRequest.query.filter(
+            VacateRequest.tenant_id == tenant_id,
+            VacateRequest.status.in_(("pending", "approved"))
+        ).first()
+        if existing:
+            raise ConflictError(
+                "A vacate notice is already in progress. Please wait for the owner to respond.",
+                request_id=existing.request_id,
+            )
+
+        request_id = self._generate_vacate_request_id(tenant)
+        with self.transaction(f"submit_vacate_request tenant={tenant_id}"):
+            vacate = VacateRequest(
+                request_id=request_id,
+                tenant_id=tenant_id,
+                owner_id=tenant.owner_id,
+                property_id=active_room.room.property_id if active_room.room else None,
+                room_id=active_room.room_id,
+                room_number=str(active_room.room.room_number) if active_room.room else None,
+                vacate_date=vacate_date,
+                reason=reason.strip() if reason else None,
+                status="pending",
+            )
+            db.session.add(vacate)
+            db.session.flush()
+
+        self.log.info(
+            "Vacate request submitted",
+            extra={"tenant_id": tenant_id, "request_id": request_id, "owner_id": tenant.owner_id},
+        )
+        return vacate
+
+    def list_vacate_requests(self, owner_id: int, property_id: int | None = None, status: str | None = None):
+        q = VacateRequest.query.filter_by(owner_id=owner_id)
+        if property_id is not None:
+            q = q.filter_by(property_id=property_id)
+        if status is not None:
+            q = q.filter_by(status=status)
+        return q.order_by(VacateRequest.submitted_at.desc()).all()
+
+    def get_vacate_request(self, request_id: int, owner_id: int | None = None, tenant_id: int | None = None):
+        q = VacateRequest.query.filter_by(id=request_id)
+        if owner_id is not None:
+            q = q.filter_by(owner_id=owner_id)
+        if tenant_id is not None:
+            q = q.filter_by(tenant_id=tenant_id)
+        return q.first()
+
+    def review_vacate_request(self, request_id: int, owner_id: int, action: str, notes: str | None = None):
+        request = self.get_vacate_request(request_id, owner_id=owner_id)
+        if not request:
+            raise NotFoundError("Vacate request", request_id)
+
+        notes = notes.strip() if notes else None
+        if action == "approve":
+            if request.status != "pending":
+                raise ConflictError("Only pending requests can be approved.")
+            request.status = "approved"
+            request.processed_at = now_utc()
+            request.decision_by = owner_id
+            request.decision_notes = notes
+
+            lease = PropertyTenant.query.filter_by(
+                tenant_id=request.tenant_id,
+                property_id=request.property_id,
+                status="active"
+            ).first()
+            if lease:
+                lease.status = "vacating"
+
+        elif action == "reject":
+            if request.status not in ("pending", "approved"):
+                raise ConflictError("Only pending or approved requests can be rejected.")
+            request.status = "rejected"
+            request.processed_at = now_utc()
+            request.decision_by = owner_id
+            request.decision_notes = notes
+
+            lease = PropertyTenant.query.filter_by(
+                tenant_id=request.tenant_id,
+                property_id=request.property_id,
+                status="vacating"
+            ).first()
+            if lease:
+                lease.status = "active"
+
+        elif action == "discuss":
+            if request.status == "vacated":
+                raise ConflictError("Cannot discuss a completed vacate request.")
+            request.decision_notes = notes
+            request.processed_at = now_utc()
+
+        elif action == "finalize":
+            if request.status != "approved":
+                raise ConflictError("Only approved requests can be finalized.")
+            self.archive(request.tenant_id, owner_id)
+            request.status = "vacated"
+            request.vacated_at = now_utc()
+            request.processed_at = request.processed_at or now_utc()
+            request.decision_by = owner_id
+            request.decision_notes = notes or request.decision_notes
+
+        else:
+            raise ValidationError("Invalid vacate action.")
+
+        with self.transaction(f"review_vacate_request id={request_id} action={action}"):
+            pass
+
+        self.log.info(
+            "Vacate request updated",
+            extra={"request_id": request_id, "action": action, "owner_id": owner_id},
+        )
+        return request
+
+    def active_vacate_request_for_tenant(self, tenant_id: int):
+        return VacateRequest.query.filter(
+            VacateRequest.tenant_id == tenant_id,
+            VacateRequest.status.in_(("pending", "approved", "rejected"))
+        ).order_by(VacateRequest.submitted_at.desc()).first()
+
+    def list_vacate_requests_for_tenant(self, tenant_id: int):
+        return VacateRequest.query.filter_by(tenant_id=tenant_id).order_by(VacateRequest.submitted_at.desc()).all()
 
     def restore_from_trash(self, tenant_id: int, owner_id: int) -> User:
         tenant = self._get_tenant(tenant_id, owner_id)

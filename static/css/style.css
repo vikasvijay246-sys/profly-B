@@ -226,6 +226,21 @@ a:hover { text-decoration: underline; }
   display: inline-block; padding: 2px 9px; border-radius: 20px;
   font-size: 11px; font-weight: 600;
 }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+}
+.status-pill.pending { background: rgba(251,191,36,.14); color: var(--c-yellow); }
+.status-pill.approved { background: rgba(52,211,153,.15); color: var(--c-green); }
+.status-pill.rejected { background: rgba(248,113,113,.15); color: var(--c-red); }
+.status-pill.vacated { background: rgba(59,130,246,.15); color: var(--c-blue); }
+.vacate-box {
+  background: var(--surface2); border-radius: var(--radius); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.vacate-box strong { font-size: 13px; }
+.vacate-box span { color: var(--text2); font-size: 14px; font-weight: 600; }
 .badge-completed { background: var(--c-green-bg);  color: var(--c-green);  }
 .badge-pending   { background: var(--c-yellow-bg); color: var(--c-yellow); }
 .badge-overdue   { background: var(--c-red-bg);    color: var(--c-red);    }

@@ -162,6 +162,29 @@ title:hover {
   <button onclick="openModal('genRentModal')" class="qa-btn qa-btn-accent"><span>⚡</span>Gen Rent</button>
 </div>
 
+{% if vacate_pending or vacate_approved %}
+<div class="card">
+  <div class="card-header">
+    <h2>📨 Vacate Notices</h2>
+    <a href="{{ url_for('owner.vacate_requests') }}" class="btn btn-ghost btn-sm">Manage →</a>
+  </div>
+  <div class="card-body" style="padding:20px">
+    {% if vacate_pending %}
+      <div class="notice-card" style="margin-bottom:14px; padding:16px; background:var(--surface2); border-radius:var(--radius);">
+        <strong>{{ vacate_pending|length }} pending vacate notice{{ 's' if vacate_pending|length > 1 else '' }}</strong>
+        <p class="text-muted" style="margin:6px 0 0">These requests need owner review to keep vacancy planning on schedule.</p>
+      </div>
+    {% endif %}
+    {% if vacate_approved %}
+      <div class="notice-card" style="padding:16px; background:rgba(16,185,129,.08); border-radius:var(--radius);">
+        <strong>{{ vacate_approved|length }} approved vacate{{ 's' if vacate_approved|length > 1 else '' }} coming soon</strong>
+        <p class="text-muted" style="margin:6px 0 0">Keep room availability updated and prepare for move-out.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Monthly payment summary: Who paid / who didn't -->
 <div class="card">
   <div class="card-header">

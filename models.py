@@ -147,6 +147,68 @@ class TenantTrash(db.Model):
     )
 
 
+# ── Vacate Request ─────────────────────────────────────────────────────────────
+class VacateRequest(db.Model):
+    __tablename__ = "vacate_requests"
+
+    id             = db.Column(db.Integer, primary_key=True)
+    request_id     = db.Column(db.String(32), nullable=False, unique=True)
+    tenant_id      = db.Column(db.Integer,
+                                db.ForeignKey("users.id", ondelete="CASCADE"),
+                                nullable=False)
+    owner_id       = db.Column(db.Integer,
+                                db.ForeignKey("users.id", ondelete="CASCADE"),
+                                nullable=False)
+    property_id    = db.Column(db.Integer,
+                                db.ForeignKey("properties.id", ondelete="SET NULL"),
+                                nullable=False)
+    room_id        = db.Column(db.Integer,
+                                db.ForeignKey("rooms.id", ondelete="SET NULL"),
+                                nullable=True)
+    room_number    = db.Column(db.String(20), nullable=True)
+    vacate_date    = db.Column(db.Date, nullable=False)
+    reason         = db.Column(db.Text, nullable=True)
+    status         = db.Column(db.String(20), default="pending", nullable=False)
+    submitted_at   = db.Column(db.DateTime, default=now_utc, nullable=False)
+    processed_at   = db.Column(db.DateTime, nullable=True)
+    decision_by    = db.Column(db.Integer,
+                                db.ForeignKey("users.id", ondelete="SET NULL"),
+                                nullable=True)
+    decision_notes = db.Column(db.Text, nullable=True)
+    vacated_at     = db.Column(db.DateTime, nullable=True)
+
+    tenant   = db.relationship("User", foreign_keys=[tenant_id])
+    owner    = db.relationship("User", foreign_keys=[owner_id])
+    property = db.relationship("Property", foreign_keys=[property_id])
+    room     = db.relationship("Room", foreign_keys=[room_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "request_id": self.request_id,
+            "tenant_id": self.tenant_id,
+            "owner_id": self.owner_id,
+            "property_id": self.property_id,
+            "room_id": self.room_id,
+            "room_number": self.room_number,
+            "vacate_date": self.vacate_date.isoformat() if self.vacate_date else None,
+            "reason": self.reason,
+            "status": self.status,
+            "submitted_at": to_ist(self.submitted_at),
+            "processed_at": to_ist(self.processed_at),
+            "vacated_at": to_ist(self.vacated_at),
+            "decision_by": self.decision_by,
+            "decision_notes": self.decision_notes,
+        }
+
+    __table_args__ = (
+        Index("ix_vacate_requests_owner_id", "owner_id"),
+        Index("ix_vacate_requests_tenant_id", "tenant_id"),
+        Index("ix_vacate_requests_status", "status"),
+        Index("ix_vacate_requests_property_id", "property_id"),
+    )
+
+
 # ── Property ──────────────────────────────────────────────────────────────────
 class Property(db.Model):
     __tablename__ = "properties"

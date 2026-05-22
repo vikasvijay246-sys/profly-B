@@ -70,6 +70,7 @@
     {% if stats.unread_notifs > 0 %}<span class="unread-dot" style="font-size:10px">{{ stats.unread_notifs }}</span>{% endif %}
   </a>
   <a href="{{ url_for('chat.index') }}"           class="qa-btn"><span>💬</span>Message</a>
+  <a href="{{ url_for('tenant.vacate_notice') }}" class="qa-btn qa-btn-accent"><span>📨</span>Request Vacate</a>
   <a href="{{ url_for('tenant.payment_history') }}" class="qa-btn"><span>📋</span>History</a>
 </div>
 
@@ -100,6 +101,24 @@
 {% else %}
 <div class="card" style="padding:16px 20px;margin-bottom:16px">
   <div class="text-muted">🚪 No room assigned yet. Contact your owner.</div>
+</div>
+{% endif %}
+
+{% if vacate_request %}
+<div class="card" style="padding:18px 22px;margin-bottom:20px; background: linear-gradient(135deg, rgba(124,58,237,.06), rgba(99,102,241,.04)); border: 1px solid rgba(99,102,241,.16);">
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div>
+      <div style="font-size:14px;font-weight:700;">Vacate notice status</div>
+      <div class="text-muted" style="font-size:13px;margin-top:4px">Your latest request: <strong>{{ vacate_request.request_id }}</strong></div>
+    </div>
+    <span class="status-pill {{ vacate_request.status }}">{{ vacate_request.status | capitalize }}</span>
+  </div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:16px;">
+    <div class="vacate-box"><strong>Vacate date</strong><span>{{ vacate_request.vacate_date.strftime('%d-%m-%Y') }}</span></div>
+    <div class="vacate-box"><strong>Property</strong><span>{{ vacate_request.property.name if vacate_request.property else '—' }}</span></div>
+    <div class="vacate-box"><strong>Room</strong><span>{{ vacate_request.room_number or '—' }}</span></div>
+    <div class="vacate-box"><strong>Submitted</strong><span>{{ vacate_request.submitted_at }}</span></div>
+  </div>
 </div>
 {% endif %}
 

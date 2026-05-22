@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Vacate Notices — PropFlow{% endblock %}
+{% block page_title %}Vacate Notices{% endblock %}
+
+{% block head %}
+<style>
+  .notice-grid { display: grid; gap: 16px; margin-bottom: 20px; }
+  .notice-card { border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .notice-card-header { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); }
+  .notice-card-header h2 { font-size: 15px; font-weight: 700; }
+  .notice-metrics { display: flex; flex-wrap: wrap; gap: 12px; }
+  .metric-pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 16px; background: var(--surface2); font-size: 13px; }
+  .metric-pill span { font-weight: 700; }
+  .request-table { width: 100%; border-collapse: collapse; }
+  .request-table th, .request-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .request-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .request-table tr:hover td { background: var(--surface2); }
+  .request-row { vertical-align: top; }
+  .status-pill { display: inline-flex; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .status-pill.pending { background: rgba(234,179,8,.15); color: var(--c-yellow); }
+  .status-pill.approved { background: rgba(16,185,129,.14); color: var(--c-green); }
+  .status-pill.rejected { background: rgba(239,68,68,.15); color: var(--c-red); }
+  .status-pill.vacated { background: rgba(59,130,246,.12); color: var(--c-blue); }
+  .request-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .request-actions .btn { white-space: nowrap; }
+  .vacate-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; padding: 20px; }
+  .vacate-summary-item { border-radius: var(--radius); background: var(--surface2); padding: 16px; }
+  .vacate-summary-item h3 { font-size: 17px; margin-bottom: 6px; }
+  .vacate-summary-item p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .vacate-box { display: grid; gap: 10px; padding: 18px 20px; }
+  .vacate-box strong { display: block; margin-bottom: 4px; }
+  .vacate-box .detail { color: var(--text2); font-size: 13px; }
+  @media (max-width: 720px) {
+    .request-actions { flex-direction: column; }
+    .notice-metrics { flex-direction: column; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notice-grid">
+  <div class="notice-card">
+    <div class="notice-card-header">
+      <div>
+        <h2>New Vacate Notice Received</h2>
+        <p class="text-muted" style="margin-top:6px">Review incoming tenant vacate requests and approve, reject, or discuss with confidence.</p>
+      </div>
+      <div class="notice-metrics">
+        <div class="metric-pill"><span>{{ pending|length }}</span> Pending</div>
+        <div class="metric-pill"><span>{{ approved|length }}</span> Vacating Soon</div>
+        <div class="metric-pill"><span>{{ requests|length }}</span> Total</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notice-card">
+    <div class="notice-card-header"><h2>Vacating Soon</h2></div>
+    <div class="vacate-summary">
+      {% if approved %}
+        {% for req in approved[:4] %}
+        <div class="vacate-summary-item">
+          <strong>{{ req.tenant.full_name }}</strong>
+          <div class="detail">Room {{ req.room_number or '—' }} · {{ req.property.name if req.property else 'Property' }} </div>
+          <div class="detail">Vacate on {{ req.vacate_date.strftime('%d-%m-%Y') }}</div>
+          <div class="detail">Request {{ req.request_id }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No approved vacate notices scheduled yet. Active occupancy remains stable.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Vacate Request Activity</h2></div>
+  <div class="table-wrap">
+    <table class="request-table">
+      <thead>
+        <tr>
+          <th>Tenant</th>
+          <th>Property / Room</th>
+          <th>Vacate Date</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if requests %}
+          {% for req in requests %}
+          <tr class="request-row">
+            <td>
+              <strong>{{ req.tenant.full_name if req.tenant else '—' }}</strong><br>
+              <span class="text-muted" style="font-size:12px">{{ req.tenant.tenant_public_id if req.tenant else '' }}</span>
+            </td>
+            <td>
+              <div>{{ req.property.name if req.property else '—' }}</div>
+              <div class="text-muted" style="font-size:12px">Room {{ req.room_number or '—' }}</div>
+            </td>
+            <td>{{ req.vacate_date.strftime('%d-%m-%Y') }}</td>
+            <td><span class="status-pill {{ req.status }}">{{ req.status | capitalize }}</span></td>
+            <td class="text-muted" style="font-size:12px">{{ req.submitted_at }}</td>
+            <td>
+              <div class="request-actions">
+                {% if req.status == 'pending' %}
+                  <button class="btn btn-primary btn-sm" onclick="submitVacateAction({{ req.id }}, 'approve')">Approve</button>
+                  <button class="btn btn-danger btn-sm" onclick="submitVacateAction({{ req.id }}, 'reject')">Reject</button>
+                  <button class="btn btn-ghost btn-sm" onclick="submitVacateAction({{ req.id }}, 'discuss')">Discuss</button>
+                {% elif req.status == 'approved' %}
+                  <button class="btn btn-primary btn-sm" onclick="submitVacateAction({{ req.id }}, 'finalize')">Mark Vacated</button>
+                {% else %}
+                  <button class="btn btn-ghost btn-sm" disabled>{{ req.status | capitalize }}</button>
+                {% endif %}
+                <button class="btn btn-ghost btn-sm" onclick="toggleNotes('notes-{{ req.id }}')">Details</button>
+              </div>
+              <div id="notes-{{ req.id }}" class="text-muted" style="display:none;margin-top:10px;font-size:12px">
+                {% if req.reason %}<strong>Reason:</strong> {{ req.reason }}<br>{% endif %}
+                {% if req.decision_notes %}<strong>Owner notes:</strong> {{ req.decision_notes }}{% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-24">No vacate notices yet. Tenant requests will appear here automatically.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleNotes(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function submitVacateAction(id, action) {
+    if (action === 'reject' || action === 'finalize') {
+      if (!confirm('Are you sure you want to ' + action + ' this vacate request?')) {
+        return;
+      }
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/owner/vacate-notices/${id}/action`;
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.name = 'action';
+    input.value = action;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+</script>
+{% endblock %}

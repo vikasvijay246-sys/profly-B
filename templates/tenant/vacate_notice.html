@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Request Vacate — PropFlow{% endblock %}
+{% block page_title %}Request Vacate Notice{% endblock %}
+
+{% block head %}
+<style>
+  .vacate-hero {
+    display: grid; gap: 16px; padding: 22px 20px; margin-bottom: 20px;
+    border-radius: 18px; background: linear-gradient(180deg, rgba(124,58,237,.14), rgba(59,130,246,.09));
+    border: 1px solid rgba(99,102,241,.16); box-shadow: 0 18px 45px rgba(79,70,229,.08);
+  }
+  .vacate-hero h2 { font-size: 20px; margin-bottom: 6px; }
+  .vacate-hero p { color: var(--muted); line-height: 1.6; }
+  .vacate-card { background: rgba(255,255,255,.88); border: 1px solid rgba(148,163,184,.18); backdrop-filter: blur(10px); }
+  .vacate-form-grid { display: grid; gap: 14px; }
+  .badge-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge-pill.pending { background: rgba(234,179,8,.15); color: var(--c-yellow); }
+  .badge-pill.approved { background: rgba(16,185,129,.12); color: var(--c-green); }
+  .badge-pill.rejected { background: rgba(239,68,68,.12); color: var(--c-red); }
+  .vacate-meta { display: grid; gap: 10px; margin-top: 20px; }
+  .vacate-meta-item { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; background: var(--surface2); border-radius: var(--radius); }
+  .vacate-meta-item span:last-child { color: var(--text2); font-weight: 600; }
+  .proof-box { border-radius: var(--radius-lg); border: 1px solid rgba(99,102,241,.16); background: linear-gradient(180deg, rgba(248,250,252,.95), #fff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
+  .proof-header { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .proof-title { font-size: 15px; font-weight: 700; }
+  .proof-body { padding: 0 20px 18px; display: grid; gap: 12px; }
+  .proof-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+  .proof-label { color: var(--muted); font-size: 12px; }
+  .proof-value { font-weight: 600; font-size: 13px; }
+  .proof-actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 20px 20px; }
+  .proof-actions .btn { flex: 1 1 140px; }
+  .notice-cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .notice-block { font-size: 13px; color: var(--muted); background: var(--surface2); padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--border); }
+  @media (min-width: 720px) {
+    .vacate-form-grid { grid-template-columns: 1fr 1fr; }
+    .vacate-meta { grid-template-columns: 1fr 1fr; }
+    .notice-cta { justify-content: space-between; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vacate-hero">
+  <div>
+    <h2>Official Vacate Notice</h2>
+    <p>Submit a premium vacate request that creates a professional proof record for both you and your owner. This keeps the process clean, verifiable, and dispute-free.</p>
+  </div>
+  <div class="notice-block">
+    <strong>Current date</strong>
+    <div>{{ current_date }}</div>
+  </div>
+</div>
+
+<div class="card vacate-card">
+  <div class="card-header">
+    <h2>Vacate request details</h2>
+    {% if existing_request %}
+      <span class="badge-pill {{ existing_request.status }}">{{ existing_request.status | capitalize }}</span>
+    {% endif %}
+  </div>
+  <div class="card-body" style="padding:20px">
+    {% if existing_request and existing_request.status in ['pending', 'approved'] %}
+      <div class="text-muted" style="margin-bottom:18px">You already have an active vacate notice. The owner has been notified and will respond shortly.</div>
+    {% endif %}
+
+    {% if not existing_request or existing_request.status in ['rejected', 'vacated'] %}
+    <form method="POST" id="vacateForm">
+      <div class="vacate-form-grid">
+        <div class="form-group">
+          <label class="form-label">Property</label>
+          <input class="form-input" value="{{ active_room.room.prop.name if active_room and active_room.room and active_room.room.prop else '—' }}" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Room Number</label>
+          <input class="form-input" value="{{ active_room.room.room_number if active_room and active_room.room else '—' }}" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tenant ID</label>
+          <input class="form-input" value="{{ current_user.tenant_public_id or current_user.phone }}" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owner phone</label>
+          <input class="form-input" value="{{ owner_phone or 'Not available' }}" readonly />
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Vacate Date</label>
+          <input type="date" name="vacate_date" class="form-input" min="{{ today_iso }}" required />
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Reason for leaving <span class="text-muted">(optional)</span></label>
+          <textarea name="reason" rows="3" class="form-input" placeholder="e.g. moving for work, family relocation, graduation"></textarea>
+        </div>
+      </div>
+      <div class="card-footer" style="display:flex;justify-content:space-between;align-items:center;padding:18px 0 0;border-top:1px solid var(--border)">
+        <div class="text-muted" style="font-size:13px">Your request will be sent directly to your property owner and retained as proof.</div>
+        <button type="button" class="btn btn-primary btn-full" onclick="openVacateReview()">Request Vacate</button>
+      </div>
+    </form>
+    {% else %}
+    <div style="display:grid;gap:14px">
+      <div class="proof-box" id="vacateProofCard">
+        <div class="proof-header">
+          <div>
+            <div class="proof-title">VACATE NOTICE PROOF</div>
+            <div class="text-muted" style="font-size:12px">Request ID: {{ existing_request.request_id }}</div>
+          </div>
+          <span class="badge-pill {{ existing_request.status }}">{{ existing_request.status | capitalize }}</span>
+        </div>
+        <div class="proof-body">
+          <div class="proof-row"><div class="proof-label">Tenant</div><div class="proof-value">{{ current_user.full_name }}</div></div>
+          <div class="proof-row"><div class="proof-label">Tenant ID</div><div class="proof-value">{{ current_user.tenant_public_id or current_user.phone }}</div></div>
+          <div class="proof-row"><div class="proof-label">Property</div><div class="proof-value">{{ existing_request.property.name if existing_request.property else existing_request.property_id }}</div></div>
+          <div class="proof-row"><div class="proof-label">Room</div><div class="proof-value">{{ existing_request.room_number or '—' }}</div></div>
+          <div class="proof-row"><div class="proof-label">Vacate date</div><div class="proof-value">{{ existing_request.vacate_date.strftime('%d-%m-%Y') if existing_request.vacate_date else '—' }}</div></div>
+          <div class="proof-row"><div class="proof-label">Submitted</div><div class="proof-value">{{ existing_request.submitted_at }}</div></div>
+          {% if existing_request.reason %}
+          <div class="proof-row"><div class="proof-label">Reason</div><div class="proof-value">{{ existing_request.reason }}</div></div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="proof-actions">
+        <button class="btn btn-ghost" onclick="copyVacateNotice()">Copy Notice</button>
+        <button class="btn btn-ghost" onclick="shareVacateWhatsApp()">Share to WhatsApp</button>
+        <button class="btn btn-primary" onclick="downloadVacatePDF()">Download PDF</button>
+        <a href="#status" class="btn btn-sm btn-ghost">View Status</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="vacateConfirm1" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h3>Confirm Vacate Notice</h3><button onclick="closeModal('vacateConfirm1')">✕</button></div>
+    <div class="modal-body">
+      <p>Are you sure you want to submit this vacate notice?</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('vacateConfirm1')">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="openVacateConfirm2()">Yes, continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="vacateConfirm2" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h3>Official Notification</h3><button onclick="closeModal('vacateConfirm2')">✕</button></div>
+    <div class="modal-body">
+      <p>This action officially notifies the property owner and generates a trusted proof record.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('vacateConfirm2')">Back</button>
+      <button type="button" class="btn btn-primary" onclick="submitVacateRequest()">Submit Request</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-YcsIPCNx00iMGtBKp69ZKKUwB8JCwtNpONr1dc17PdZ4IaO+7KxL0xkqHj7y6VoF+kgG6l2jQtZgV2kaEwYV6w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  function openVacateReview() {
+    openModal('vacateConfirm1');
+  }
+  function openVacateConfirm2() {
+    closeModal('vacateConfirm1');
+    openModal('vacateConfirm2');
+  }
+  function submitVacateRequest() {
+    closeModal('vacateConfirm2');
+    document.getElementById('vacateForm').submit();
+  }
+
+  function copyVacateNotice() {
+    const card = document.getElementById('vacateProofCard');
+    if (!card) return;
+    const text = Array.from(card.querySelectorAll('.proof-row')).map(row => {
+      return row.querySelector('.proof-label').textContent + ': ' + row.querySelector('.proof-value').textContent;
+    }).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Vacate notice copied to clipboard.');
+    });
+  }
+
+  function shareVacateWhatsApp() {
+    const card = document.getElementById('vacateProofCard');
+    if (!card) return;
+    const lines = Array.from(card.querySelectorAll('.proof-row')).map(row => {
+      return row.querySelector('.proof-label').textContent + ': ' + row.querySelector('.proof-value').textContent;
+    });
+    const text = encodeURIComponent('Vacate notice details:\n' + lines.join('\n'));
+    const url = 'https://wa.me/{{ owner_phone|replace('+','')|replace(' ', '') if owner_phone else '' }}?text=' + text;
+    window.open(url, '_blank');
+  }
+
+  function downloadVacatePDF() {
+    const element = document.getElementById('vacateProofCard');
+    if (!element) return;
+    html2pdf().set({ margin: 12, filename: 'vacate-notice-{{ existing_request.request_id if existing_request else "notice" }}.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 } }).from(element).save();
+  }
+</script>
+{% endblock %}

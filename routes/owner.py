@@ -4,7 +4,7 @@ No business logic, no direct DB queries (except simple reads in dashboard).
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import db, User, Property, PropertyTenant, Payment, Room, RoomTenant, now_utc
+from models import db, User, Property, PropertyTenant, Payment, Room, RoomTenant, VacateRequest, now_utc
 from routes import role_required
 from services import (generate_monthly_rent, mark_overdue_payments,
                       owner_payment_summary, push_notification, fmt_month,
@@ -82,11 +82,24 @@ def property_dashboard(property_id):
 
     recent_payments = Payment.query.filter_by(property_id=property_id).order_by(Payment.created_at.desc()).limit(10).all()
 
+    vacate_pending = VacateRequest.query.filter_by(
+        owner_id=current_user.id,
+        property_id=property_id,
+        status="pending"
+    ).order_by(VacateRequest.submitted_at.desc()).all()
+    vacate_approved = VacateRequest.query.filter_by(
+        owner_id=current_user.id,
+        property_id=property_id,
+        status="approved"
+    ).order_by(VacateRequest.vacate_date.asc()).all()
+
     return render_template("owner/dashboard.html",
                            stats=stats, recent_payments=recent_payments,
                            props=[prop], room_data=room_data,
                            pay_summary=pay_summary, target_month=target_month,
-                           current_property=prop)
+                           current_property=prop,
+                           vacate_pending=vacate_pending,
+                           vacate_approved=vacate_approved)
 
 
 @owner_bp.route("/property-selection")
@@ -268,6 +281,54 @@ def tenants():
     my_tenants = _tenant_svc.list_for_owner(current_user.id, include_inactive=False)
     my_props   = Property.query.filter_by(owner_id=current_user.id, is_deleted=False).all()
     return render_template("owner/tenants.html", tenants=my_tenants, properties=my_props)
+
+
+@owner_bp.route("/vacate-notices")
+@login_required
+@role_required("owner")
+def vacate_requests():
+    requests = VacateRequest.query.filter_by(owner_id=current_user.id).order_by(
+        VacateRequest.submitted_at.desc()
+    ).all()
+    pending = [r for r in requests if r.status == "pending"]
+    approved = [r for r in requests if r.status == "approved"]
+    return render_template(
+        "owner/vacate_requests.html",
+        requests=requests,
+        pending=pending,
+        approved=approved,
+    )
+
+
+@owner_bp.route("/vacate-notices/<int:rid>/action", methods=["POST"])
+@login_required
+@role_required("owner")
+def vacate_request_action(rid):
+    action = request.form.get("action")
+    notes = request.form.get("notes", "").strip() or None
+    try:
+        vacate = _tenant_svc.review_vacate_request(rid, current_user.id, action, notes)
+        try:
+            from app import socketio
+            status_label = {
+                "approve": "approved",
+                "reject": "rejected",
+                "discuss": "needs attention",
+                "finalize": "finalized"
+            }.get(action, action)
+            push_notification(
+                socketio,
+                vacate.tenant_id,
+                "Vacate Notice Updated",
+                f"Your vacate notice {vacate.request_id} has been {status_label}.",
+                "general"
+            )
+        except Exception:
+            pass
+        flash(f"Vacate request {action}ed successfully.", "success")
+    except AppError as e:
+        flash(str(e), "error")
+    return redirect(url_for("owner.vacate_requests"))
 
 
 @owner_bp.route("/trash")

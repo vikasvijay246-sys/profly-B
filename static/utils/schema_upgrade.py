@@ -33,6 +33,44 @@ def upgrade_sqlite_schema(db):
 
         conn.commit()
 
+        # Create vacate requests table if it does not already exist.
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS vacate_requests ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "request_id VARCHAR(32) NOT NULL UNIQUE, "
+            "tenant_id INTEGER NOT NULL, "
+            "owner_id INTEGER NOT NULL, "
+            "property_id INTEGER NOT NULL, "
+            "room_id INTEGER, "
+            "room_number VARCHAR(20), "
+            "vacate_date DATE NOT NULL, "
+            "reason TEXT, "
+            "status VARCHAR(20) NOT NULL DEFAULT 'pending', "
+            "submitted_at DATETIME NOT NULL, "
+            "processed_at DATETIME, "
+            "decision_by INTEGER, "
+            "decision_notes TEXT, "
+            "vacated_at DATETIME, "
+            "FOREIGN KEY(tenant_id) REFERENCES users(id) ON DELETE CASCADE, "
+            "FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE, "
+            "FOREIGN KEY(property_id) REFERENCES properties(id) ON DELETE SET NULL, "
+            "FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE SET NULL, "
+            "FOREIGN KEY(decision_by) REFERENCES users(id) ON DELETE SET NULL"
+            ")"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_vacate_requests_owner_id ON vacate_requests(owner_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_vacate_requests_tenant_id ON vacate_requests(tenant_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_vacate_requests_status ON vacate_requests(status)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_vacate_requests_property_id ON vacate_requests(property_id)"
+        ))
+
     # Unique partial index for tenant IDs (SQLite)
     with bind.connect() as conn:
         conn.execute(text(
