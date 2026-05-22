@@ -270,6 +270,26 @@ def tenants():
     return render_template("owner/tenants.html", tenants=my_tenants, properties=my_props)
 
 
+@owner_bp.route("/trash")
+@login_required
+@role_required("owner", "admin")
+def tenant_trash():
+    trash_tenants = _tenant_svc.list_trash_for_owner(current_user.id)
+    return render_template("owner/tenant_trash.html", tenants=trash_tenants)
+
+
+@owner_bp.route("/trash/<int:tid>/restore", methods=["POST"])
+@login_required
+@role_required("owner", "admin")
+def restore_tenant(tid):
+    try:
+        _tenant_svc.restore_from_trash(tid, current_user.id)
+        flash("Tenant restored from trash.", "success")
+    except AppError as e:
+        flash(str(e), "error")
+    return redirect(url_for("owner.tenant_trash"))
+
+
 @owner_bp.route("/api/property/<int:pid>/rooms")
 @login_required
 @role_required("owner")
@@ -426,10 +446,10 @@ def edit_tenant(tid):
 @login_required
 @role_required("owner")
 def delete_tenant(tid):
-    """Soft-delete: preserves payment history, marks inactive."""
+    """Move tenant to trash: preserve history, hide from active dashboards."""
     try:
-        _tenant_svc.deactivate(tid, current_user.id)
-        flash("Tenant deactivated (history preserved).", "success")
+        _tenant_svc.archive(tid, current_user.id)
+        flash("Tenant moved to trash. History preserved.", "success")
     except AppError as e:
         flash(str(e), "error")
     return redirect(url_for("owner.tenants"))

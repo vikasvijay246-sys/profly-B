@@ -10,8 +10,9 @@ SAFETY RULES enforced here:
   4. Hard-delete only allowed by admin, with explicit flag
   5. Every write goes through self.transaction()
 """
+from datetime import timedelta
 from models import (db, User, Property, PropertyTenant, Room,
-                    Payment, RoomTenant, Notification, now_utc)
+                    Payment, RoomTenant, Notification, TenantTrash, now_utc)
 from services.base import BaseService
 from utils.errors import (
     ValidationError, NotFoundError, ConflictError, PermissionError_,
@@ -267,6 +268,106 @@ class TenantService(BaseService):
                    "tenancies_vacated": len(active_pts)},
         )
         return tenant
+
+    # ── Move tenant to trash archive ────────────────────────────────────────────
+    def archive(self, tenant_id: int, owner_id: int) -> User:
+        tenant = self._get_tenant(tenant_id, owner_id)
+
+        if TenantTrash.query.get(tenant_id):
+            raise ConflictError("Tenant is already in trash.")
+
+        deleted_at = now_utc()
+        auto_delete_date = deleted_at + timedelta(days=100)
+
+        with self.transaction(f"archive_tenant id={tenant_id}"):
+            trash = TenantTrash(
+                id=tenant.id,
+                phone=tenant.phone,
+                full_name=tenant.full_name,
+                password_hash=tenant.password_hash,
+                role=tenant.role,
+                is_active=tenant.is_active,
+                owner_id=tenant.owner_id,
+                address=tenant.address,
+                photo=tenant.photo,
+                proof_id=tenant.proof_id,
+                is_verified=tenant.is_verified,
+                tenant_public_id=tenant.tenant_public_id,
+                designation=tenant.designation,
+                created_at=tenant.created_at,
+                updated_at=tenant.updated_at,
+                deleted_at=deleted_at,
+                auto_delete_date=auto_delete_date,
+            )
+            db.session.add(trash)
+
+            tenant.is_active = False
+
+            active_rooms = (RoomTenant.query
+                            .filter_by(tenant_id=tenant_id, is_active=True)
+                            .all())
+            for rt in active_rooms:
+                rt.is_active = False
+                rt.vacated_at = now_utc()
+                self.log.info(
+                    "Room assignment vacated",
+                    extra={"room_id": rt.room_id, "tenant_id": tenant_id},
+                )
+
+            active_pts = (PropertyTenant.query
+                          .filter_by(tenant_id=tenant_id, status="active")
+                          .all())
+            for pt in active_pts:
+                pt.status = "vacated"
+                if pt.property_id:
+                    remaining = PropertyTenant.query.filter(
+                        PropertyTenant.property_id == pt.property_id,
+                        PropertyTenant.tenant_id != tenant_id,
+                        PropertyTenant.status == "active",
+                    ).count()
+                    if remaining == 0 and pt.property:
+                        pt.property.status = "available"
+
+        self.log.info(
+            "Tenant archived to trash",
+            extra={"tenant_id": tenant_id, "owner_id": owner_id,
+                   "rooms_vacated": len(active_rooms),
+                   "tenancies_vacated": len(active_pts)},
+        )
+        return tenant
+
+    def restore_from_trash(self, tenant_id: int, owner_id: int) -> User:
+        tenant = self._get_tenant(tenant_id, owner_id)
+        trash = TenantTrash.query.get(tenant_id)
+        if not trash:
+            raise NotFoundError("Trashed tenant", tenant_id)
+        if tenant.is_active:
+            raise ConflictError("Tenant is already active.")
+
+        with self.transaction(f"restore_tenant id={tenant_id}"):
+            tenant.is_active = True
+            db.session.delete(trash)
+
+        self.log.info(
+            "Tenant restored from trash",
+            extra={"tenant_id": tenant_id, "owner_id": owner_id},
+        )
+        return tenant
+
+    def cleanup_trash(self) -> int:
+        now = now_utc()
+        expired = TenantTrash.query.filter(TenantTrash.auto_delete_date <= now).all()
+        count = len(expired)
+        if count > 0:
+            for row in expired:
+                db.session.delete(row)
+            db.session.commit()
+        return count
+
+    def list_trash_for_owner(self, owner_id: int):
+        return TenantTrash.query.filter_by(owner_id=owner_id).order_by(
+            TenantTrash.full_name
+        ).all()
 
     # ── Hard delete (admin only) ──────────────────────────────────────────────
     def hard_delete(self, tenant_id: int, admin_id: int) -> bool:

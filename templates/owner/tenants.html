@@ -6,7 +6,10 @@
 <div class="card">
   <div class="card-header">
     <h2>Tenants <span class="badge-count">{{ tenants|length }}</span></h2>
-    <button class="btn btn-primary btn-sm" onclick="openModal('addTenantModal')">+ Add Tenant</button>
+    <div class="header-actions">
+      <a href="{{ url_for('owner.tenant_trash') }}" class="btn btn-secondary btn-sm">🗑️ Trash</a>
+      <button class="btn btn-primary btn-sm" onclick="openModal('addTenantModal')">+ Add Tenant</button>
+    </div>
   </div>
 
   <div class="table-wrap">
@@ -46,8 +49,8 @@
             <div class="action-btns">
               <button class="btn btn-ghost btn-xs" onclick='openEditTenant({{ t.to_dict()|tojson }})'>Edit</button>
               {% if t.is_active %}
-              <form method="POST" action="{{ url_for('owner.delete_tenant', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Deactivate {{ t.full_name }}? This preserves history for reports.')">
-                <button class="btn btn-danger btn-xs">Deactivate</button>
+              <form method="POST" action="{{ url_for('owner.delete_tenant', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Move {{ t.full_name }} to trash? This preserves history for reports.')">
+                <button class="btn btn-danger btn-xs">Move to Trash</button>
               </form>
               {% else %}
               <button class="btn btn-secondary btn-xs" disabled>Inactive</button>

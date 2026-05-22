@@ -104,6 +104,49 @@ class User(UserMixin, db.Model):
     )
 
 
+# ── Tenant Trash Archive ──────────────────────────────────────────────────────
+class TenantTrash(db.Model):
+    __tablename__ = "tenant_trash"
+
+    id               = db.Column(db.Integer, primary_key=True)
+    phone            = db.Column(db.String(30),  nullable=False)
+    full_name        = db.Column(db.String(150), nullable=False)
+    password_hash    = db.Column(db.String(255), nullable=False)
+    role             = db.Column(db.String(10),  nullable=False, default="tenant")
+    is_active        = db.Column(db.Boolean, default=False, nullable=False)
+    owner_id         = db.Column(db.Integer, nullable=True)
+    address          = db.Column(db.Text, nullable=True)
+    photo            = db.Column(db.String(255), nullable=True)
+    proof_id         = db.Column(db.String(255), nullable=True)
+    is_verified      = db.Column(db.Boolean, default=False, nullable=False)
+    tenant_public_id = db.Column(db.String(48), nullable=True)
+    designation      = db.Column(db.String(40), nullable=True)
+    created_at       = db.Column(db.DateTime, default=now_utc, nullable=False)
+    updated_at       = db.Column(db.DateTime, default=now_utc, onupdate=now_utc, nullable=False)
+    deleted_at       = db.Column(db.DateTime, default=now_utc, nullable=False)
+    auto_delete_date = db.Column(db.DateTime, nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "phone": self.phone,
+            "full_name": self.full_name,
+            "role": self.role,
+            "is_active": self.is_active,
+            "owner_id": self.owner_id,
+            "tenant_public_id": self.tenant_public_id,
+            "designation": self.designation,
+            "created_at": to_ist(self.created_at),
+            "deleted_at": to_ist(self.deleted_at),
+            "auto_delete_date": to_ist(self.auto_delete_date),
+        }
+
+    __table_args__ = (
+        Index("ix_tenant_trash_owner_id", "owner_id"),
+        Index("ix_tenant_trash_phone", "phone"),
+    )
+
+
 # ── Property ──────────────────────────────────────────────────────────────────
 class Property(db.Model):
     __tablename__ = "properties"

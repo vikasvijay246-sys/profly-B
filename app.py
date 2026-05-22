@@ -2,7 +2,7 @@
 PropFlow — Production Flask + SocketIO
 Run: python app.py
 """
-import os, uuid, logging
+import os, uuid, logging, threading, time
 from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, render_template, request
 from flask_login import LoginManager
@@ -118,7 +118,28 @@ def create_app(config_class=Config):
         upgrade_sqlite_schema(db)
 
     log.info("PropFlow app created", extra={"db": app.config["SQLALCHEMY_DATABASE_URI"][:30]})
+
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        _start_tenant_trash_cleanup(app)
+
     return app
+
+
+def _start_tenant_trash_cleanup(app):
+    def cleanup_loop():
+        from services.tenant import TenantService
+        with app.app_context():
+            service = TenantService()
+            while True:
+                try:
+                    deleted = service.cleanup_trash()
+                    log.info("Tenant trash cleanup completed", extra={"deleted": deleted})
+                except Exception as exc:
+                    log.exception("Tenant trash cleanup failed", extra={"error": str(exc)})
+                time.sleep(86400)
+
+    thread = threading.Thread(target=cleanup_loop, daemon=True)
+    thread.start()
 
 
 # ── SocketIO event: join user's personal room ──────────────────────────────────

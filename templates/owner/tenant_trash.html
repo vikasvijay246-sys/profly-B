@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Tenant Trash — PropFlow{% endblock %}
+{% block page_title %}Tenant Trash{% endblock %}
+
+{% block content %}
+<div class="card muted-card">
+  <div class="card-header">
+    <h2>Trash <span class="badge-count">{{ tenants|length }}</span></h2>
+    <a href="{{ url_for('owner.tenants') }}" class="btn btn-primary btn-sm">Back to Tenants</a>
+  </div>
+
+  <div class="table-wrap">
+    {% if tenants %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Deleted At</th>
+          <th>Restore Before</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tenants %}
+        <tr class="muted-row">
+          <td>
+            <div class="user-cell">
+              <span class="avatar avatar-sm" style="background:#e5e7eb;color:#4b5563">{{ t.full_name[0].upper() }}</span>
+              <div>
+                <strong>{{ t.full_name }}</strong>
+                {% if t.tenant_public_id %}
+                <div class="text-muted small">{{ t.tenant_public_id }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          <td>{{ t.phone }}</td>
+          <td>{{ t.deleted_at }}</td>
+          <td>{{ t.auto_delete_date }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('owner.restore_tenant', tid=t.id) }}">
+              <button type="submit" class="btn btn-secondary btn-xs">↺ Undo</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state muted-card">
+      <p class="text-muted">No tenants are currently in trash. When tenants are moved here, they will remain archived for 100 days before permanent cleanup.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.muted-card { background: #f8fafc; color: #4b5563; }
+.muted-row { opacity: 0.95; }
+.empty-state { padding: 40px; border: 1px dashed #d1d5db; border-radius: 12px; text-align: center; }
+</style>
+{% endblock %}
