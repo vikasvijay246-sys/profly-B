@@ -39,10 +39,14 @@ def index():
                   if current_user.role == "admin" else
                   Property.query.filter_by(owner_id=current_user.id,
                                            is_deleted=False).all())
-    tenants    = (User.query.filter_by(role="tenant", is_active=True).all()
-                  if current_user.role == "admin" else
-                  User.query.filter_by(role="tenant", owner_id=current_user.id,
-                                       is_active=True).all())
+    active_tenant_ids = (RoomTenant.query.with_entities(RoomTenant.tenant_id)
+                         .filter_by(is_active=True).subquery())
+    tenants = (User.query.filter_by(role="tenant", is_active=True)
+               .filter(~User.id.in_(active_tenant_ids)).all()
+               if current_user.role == "admin" else
+               User.query.filter_by(role="tenant", owner_id=current_user.id,
+                                    is_active=True)
+                   .filter(~User.id.in_(active_tenant_ids)).all())
 
     return render_template("rooms/index.html",
                            room_data=room_data,
@@ -94,6 +98,10 @@ def assign_tenant(rid):
     from static.utils.validators import optional_id
 
     tenant_id = optional_id(request.form.get("tenant_id"), "tenant_id")
+    if tenant_id and RoomTenant.query.filter_by(tenant_id=tenant_id, is_active=True).first():
+        flash("Tenant already assigned", "error")
+        return redirect(url_for("rooms.index"))
+
     ok, msg, _ = _room_svc.assign_tenant(rid, tenant_id, current_user.id)
     flash(msg, "success" if ok else "error")
     return redirect(url_for("rooms.index"))

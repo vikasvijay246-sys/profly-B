@@ -156,6 +156,18 @@ class RoomService(BaseService):
         if occ >= self.MAX_CAPACITY:
             raise CapacityError(f"Maximum {self.MAX_CAPACITY} tenants per room")
 
+        # Prevent a tenant from holding more than one active room assignment at once
+        active_assignment = RoomTenant.query.filter(
+            RoomTenant.tenant_id == tenant_id,
+            RoomTenant.is_active == True,
+            RoomTenant.room_id != room_id,
+        ).first()
+        if active_assignment:
+            raise ConflictError(
+                f"Tenant {tenant.full_name} already has an active room assignment "
+                f"(Room {active_assignment.room.room_number})."
+            )
+
         # Already active?
         existing = RoomTenant.query.filter_by(
             room_id=room_id, tenant_id=tenant_id
