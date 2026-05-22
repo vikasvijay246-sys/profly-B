@@ -62,7 +62,7 @@
 
       <div class="room-card-footer">
         <!-- Assign tenant -->
-        {% if not r.get_is_full() %}
+        {% if not r.get_is_full()  %}
         <button class="btn btn-primary btn-xs" onclick='openAssignModal({{ r.id }}, {{ r.room_number }})'>+ Assign</button>
         {% else %}
         <span class="badge badge-overdue" style="font-size:11px">Full</span>

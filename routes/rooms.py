@@ -92,6 +92,7 @@ def delete_room(rid):
 @role_required("owner", "admin")
 def assign_tenant(rid):
     from static.utils.validators import optional_id
+
     tenant_id = optional_id(request.form.get("tenant_id"), "tenant_id")
     ok, msg, _ = _room_svc.assign_tenant(rid, tenant_id, current_user.id)
     flash(msg, "success" if ok else "error")

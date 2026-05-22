@@ -31,7 +31,7 @@
         <div class="conv-info">
           <div class="conv-name">
             {{ c.user.full_name }}
-            {% if c.user.tenant_public_id %}<span class="text-muted font-mono" style="font-size:10px">{{ c.user.tenant_public_id }}</span>{% endif %}
+            <!-- {% if c.user.tenant_public_id %}<span class="text-muted font-mono" style="font-size:10px">{{ c.user.tenant_public_id }}</span>{% endif %} -->
             {% if c.unread %}<span class="unread-dot">{{ c.unread }}</span>{% endif %}
           </div>
           <div class="conv-last text-muted">

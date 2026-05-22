@@ -34,7 +34,7 @@
   <div class="table-wrap">
     <table class="table">
       <thead>
-        <tr><th>Tenant</th><th>Tenant ID</th><th>Month</th><th>Amount</th><th>Status</th><th>Due</th><th>Paid At</th><th>Txn</th><th>Actions</th></tr>
+        <tr><th>Tenant</th><th>Tenant ID</th><th>Month</th><th>Amount</th><th>Status</th><th>Due</th><th>Paid At</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {% for p in payments %}
@@ -56,7 +56,7 @@
           </td>
           <td class="text-muted">{{ p.due_date.strftime('%d-%m-%Y') if p.due_date else '—' }}</td>
           <td class="text-muted">{{ p.paid_at.strftime('%d-%m-%Y') if p.paid_at else '—' }}</td>
-          <td style="font-size:11px;font-family:monospace;color:var(--muted)">{{ p.transaction_id[:12] ~ '…' if p.transaction_id else '—' }}</td>
+          <!-- <td style="font-size:11px;font-family:monospace;color:var(--muted)">{{ p.transaction_id[:12] ~ '…' if p.transaction_id else '—' }}</td> -->
           <td>
             <div class="action-btns">
               {% if p.status != 'completed' %}
