@@ -30,6 +30,21 @@
   align-items: flex-start;
   gap: 12px;
 }
+title {
+  text-decoration: none;
+  font-size: 1.2rem;
+  font-weight: 600;
+  /* border-bottom: 1px dotted transparent; */
+  color: #1e40af;
+  border-radius: 14px;
+  background-color: #577eb4;
+
+}
+title:hover {
+  text-decoration: none;
+  color: #1e40af;
+  background-color: #4069a1;
+}
 .property-info {
   width: 100%;
 }
@@ -56,20 +71,23 @@
   border-radius: 10px;
 }
 .property-title-link {
-  color: inherit;
   text-decoration: none;
+  color: inherit;
   border-bottom: 1px dotted transparent;
 }
 .property-title-link:hover {
+  text-decoration: none;
   color: #2563eb;
   border-bottom-color: #2563eb;
 }
 .property-link {
+  text-decoration: none;
   color: inherit;
   text-decoration: none;
   border-bottom: 1px dotted transparent;
 }
 .property-link:hover {
+  text-decoration: none;
   color: #2563eb;
   border-bottom-color: #2563eb;
 }
@@ -264,6 +282,7 @@
     <table class="table">
       <thead><tr><th>Tenant</th><th>Amount</th><th>Month</th><th>Status</th><th>Date</th></tr></thead>
       <tbody>
+        {% if  stats.total_tenants  !=0 %}
         {% for p in recent_payments %}
         <tr>
           <td>{{ p.tenant.full_name if p.tenant else '—' }}</td>
@@ -279,11 +298,16 @@
     </table>
   </div>
 </div>
+{%else%}
+<div class="card" style="padding:16px 20px;margin-bottom:16px">
+  <div class="text-muted"> No tenants {{target_month}}</div>
+</div>
+{%endif%}
 
 <!-- Generate Rent Modal -->
 <div id="genRentModal" class="modal-backdrop hidden">
   <div class="modal" style="max-width:380px">
-    <div class="modal-header"><h3>⚡ Generate Monthly Rent</h3><button onclick="closeModal('genRentModal')">✕</button></div>
+    <div class="modal-header2"><h3>⚡ Generate Monthly Rent</h3><button onclick="closeModal('genRentModal')">✕</button></div>
     <form method="POST" action="{{ url_for('owner.generate_rent') }}">
       <div class="modal-body">
         <div class="form-group">

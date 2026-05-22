@@ -15,8 +15,10 @@ _BRAND = "TNR"
 _MAX_ATTEMPTS = 48
 
 
-def slug_property_code(prop: "Property") -> str:
+def slug_property_code(prop: "Property" = None) -> str:
     """Short property segment for IDs (4–6 chars)."""
+    if not prop:
+        return "UNASSIGNED"
     if getattr(prop, "short_code", None) and str(prop.short_code).strip():
         raw = re.sub(r"[^A-Za-z0-9]", "", str(prop.short_code).strip()).upper()
         return raw[:6] if raw else f"P{prop.id:02d}"
@@ -33,8 +35,10 @@ def slug_property_code(prop: "Property") -> str:
     return f"{initials[:4]}{prop.id % 100:02d}"[:6]
 
 
-def slug_room_segment(room: "Room") -> str:
+def slug_room_segment(room: "Room" = None) -> str:
     """Room segment: alphanumeric, compact (e.g. A203, B101)."""
+    if not room:
+        return "NA"
     num = (room.room_number or "").strip()
     seg = re.sub(r"[^A-Za-z0-9]", "", num).upper()
     if not seg:
@@ -42,7 +46,7 @@ def slug_room_segment(room: "Room") -> str:
     return seg[:8]
 
 
-def generate_tenant_public_id(prop: "Property", room: "Room") -> str:
+def generate_tenant_public_id(prop: "Property" = None, room: "Room" = None) -> str:
     """Generate and guarantee uniqueness against users.tenant_public_id."""
     pcode = slug_property_code(prop)
     rseg = slug_room_segment(room)

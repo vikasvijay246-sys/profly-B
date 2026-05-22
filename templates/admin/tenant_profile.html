@@ -50,6 +50,11 @@
                 <p class="profile-phone text-muted">
                     <i class="fas fa-phone"></i> {{ tenant.phone }}
                 </p>
+                {% if tenant.designation %}
+                <p class="profile-designation text-muted">
+                    <i class="fas fa-briefcase"></i> {{ tenant.designation }}
+                </p>
+                {% endif %}
             </div>
 
             <!-- Profile Details -->
@@ -66,6 +71,12 @@
                                 <td class="fw-bold">Phone:</td>
                                 <td>{{ tenant.phone }}</td>
                             </tr>
+                            {% if tenant.designation %}
+                            <tr>
+                                <td class="fw-bold">Designation:</td>
+                                <td>{{ tenant.designation }}</td>
+                            </tr>
+                            {% endif %}
                             <tr>
                                 <td class="fw-bold">Status:</td>
                                 <td>
