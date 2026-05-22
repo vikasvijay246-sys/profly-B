@@ -1012,3 +1012,9 @@ audio.msg-audio { border-radius: 22px; }
     color: var(--c-blue);
     text-decoration: none;
 }
+.header3-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+}

@@ -101,7 +101,7 @@ def property_selection():
     # Global stats across all properties
     stats = {
         "total_properties": len(props),
-        "total_tenants": User.query.filter_by(owner_id=current_user.id, role="tenant").count(),
+        "total_tenants": User.query.filter_by(owner_id=current_user.id, role="tenant", is_active=True).count(),
         "vacant_rooms": Room.query.filter_by(owner_id=current_user.id, is_active=True).count() - RoomTenant.query.filter(RoomTenant.is_active == True, RoomTenant.room_id.in_([r.id for r in Room.query.filter_by(owner_id=current_user.id, is_active=True).all()])).count(),
         "monthly_revenue": float(
             db.session.query(db.func.coalesce(db.func.sum(Payment.amount), 0))
@@ -265,7 +265,7 @@ def delete_property(pid):
 @login_required
 @role_required("owner")
 def tenants():
-    my_tenants = _tenant_svc.list_for_owner(current_user.id, include_inactive=True)
+    my_tenants = _tenant_svc.list_for_owner(current_user.id, include_inactive=False)
     my_props   = Property.query.filter_by(owner_id=current_user.id, is_deleted=False).all()
     return render_template("owner/tenants.html", tenants=my_tenants, properties=my_props)
 
@@ -562,7 +562,7 @@ def payments():
               .distinct().order_by(Payment.rent_month.desc()).all()
               ] if prop_ids else []
 
-    my_tenants = User.query.filter_by(owner_id=current_user.id, role="tenant").all()
+    my_tenants = User.query.filter_by(owner_id=current_user.id, role="tenant", is_active=True).all()
     my_props   = Property.query.filter_by(owner_id=current_user.id, is_deleted=False).all()
     return render_template("owner/payments.html",
                            payments=all_payments, tenants=my_tenants,

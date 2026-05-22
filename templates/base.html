@@ -27,7 +27,7 @@
       <a href="{{ url_for('admin.dashboard') }}"  class="nav-item {% if request.endpoint == 'admin.dashboard'   %}active{% endif %}"><span class="nav-icon">⊞</span>Dashboard</a>
       <a href="{{ url_for('admin.users') }}"      class="nav-item {% if request.endpoint == 'admin.users'      %}active{% endif %}"><span class="nav-icon">👔</span>Owners</a>
       <a href="{{ url_for('admin.properties') }}" class="nav-item {% if request.endpoint == 'admin.properties' %}active{% endif %}"><span class="nav-icon">🏠</span>Properties</a>
-      <a href="{{ url_for('owner.trash') }}"      class="nav-item {% if request.endpoint == 'owner.tenant_trash' %}active{% endif %}"><span class="nav-icon">🗑️</span>Trash</a>
+      <a href="{{ url_for('owner.tenant_trash') }}"      class="nav-item {% if request.endpoint == 'owner.tenant_trash' %}active{% endif %}"><span class="nav-icon">🗑️</span>Trash</a>
       <a href="{{ url_for('rooms.index') }}"      class="nav-item {% if 'rooms' in request.endpoint            %}active{% endif %}"><span class="nav-icon">🚪</span>Rooms</a>
       <a href="{{ url_for('admin.payments') }}"   class="nav-item {% if request.endpoint == 'admin.payments'   %}active{% endif %}"><span class="nav-icon">💳</span>Payments</a>
       <a href="{{ url_for('chat.index') }}"       class="nav-item {% if 'chat' in request.endpoint             %}active{% endif %}">
@@ -37,7 +37,7 @@
       <a href="{{ url_for('owner.dashboard') }}"  class="nav-item {% if request.endpoint == 'owner.dashboard'   %}active{% endif %}"><span class="nav-icon">⊞</span>Dashboard</a>
       <a href="{{ url_for('owner.properties') }}" class="nav-item {% if request.endpoint == 'owner.properties'  %}active{% endif %}"><span class="nav-icon">🏠</span>Properties</a>
       <a href="{{ url_for('owner.tenants') }}"    class="nav-item {% if request.endpoint == 'owner.tenants'     %}active{% endif %}"><span class="nav-icon">👤</span>Tenants</a>
-      <a href="{{ url_for('owner.trash') }}"      class="nav-item {% if request.endpoint == 'owner.tenant_trash' %}active{% endif %}"><span class="nav-icon">🗑️</span>Trash</a>
+      <a href="{{ url_for('owner.tenant_trash') }}"      class="nav-item {% if request.endpoint == 'owner.tenant_trash' %}active{% endif %}"><span class="nav-icon">🗑️</span>Trash</a>
       <a href="{{ url_for('rooms.index') }}"      class="nav-item {% if 'rooms' in request.endpoint             %}active{% endif %}"><span class="nav-icon">🚪</span>Rooms</a>
       <a href="{{ url_for('owner.payments') }}"   class="nav-item {% if request.endpoint == 'owner.payments'    %}active{% endif %}"><span class="nav-icon">💳</span>Payments</a>
       <a href="{{ url_for('chat.index') }}"       class="nav-item {% if 'chat' in request.endpoint              %}active{% endif %}">
