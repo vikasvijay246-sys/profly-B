@@ -58,8 +58,9 @@ def create_app(config_class=Config):
     from routes.tenant import tenant_bp
     from routes.chat   import chat_bp
     from routes.rooms  import rooms_bp
+    from routes.worker import worker_bp
 
-    for bp in [auth_bp, admin_bp, owner_bp, tenant_bp, chat_bp, rooms_bp]:
+    for bp in [auth_bp, admin_bp, owner_bp, tenant_bp, chat_bp, rooms_bp, worker_bp]:
         app.register_blueprint(bp)
 
     # ── Global error handlers ──────────────────────────────────────────────────

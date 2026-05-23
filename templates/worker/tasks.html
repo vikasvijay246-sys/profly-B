@@ -1,0 +1,27 @@
+{% extends "worker/base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+<div id="offlineBanner" class="worker-offline-banner">Offline — open tasks still work; sync when online</div>
+
+<div class="worker-tabs">
+  <a href="{{ url_for('worker.tasks', tab='pending') }}" class="{% if tab == 'pending' %}active{% endif %}">Pending</a>
+  <a href="{{ url_for('worker.tasks', tab='today') }}" class="{% if tab == 'today' %}active{% endif %}">Today</a>
+  <a href="{{ url_for('worker.tasks', tab='urgent') }}" class="{% if tab == 'urgent' %}active{% endif %}">Urgent</a>
+  <a href="{{ url_for('worker.tasks', tab='completed') }}" class="{% if tab == 'completed' %}active{% endif %}">Done</a>
+</div>
+
+{% for task in tasks %}
+<a href="{{ url_for('worker.task_detail', tid=task.id) }}" class="worker-card {% if task.priority in ('urgent','high') %}urgent{% endif %}">
+  <p class="worker-card-title">{{ task.title }}</p>
+  <p class="worker-card-meta">
+    {% if task.property %}{{ task.property.name }}{% endif %}
+    {% if task.room_number %} · R{{ task.room_number }}{% elif task.floor %} · {{ task.floor }}{% endif %}
+    {% if task.amount %} · ₹{{ "%.0f"|format(task.amount) }}{% endif %}
+  </p>
+  <span class="worker-pill {{ task.status }}">{{ task.status }}</span>
+  {% if task.priority == 'urgent' %}<span class="worker-pill urgent">urgent</span>{% endif %}
+</a>
+{% else %}
+<p style="text-align:center;color:var(--text-muted);padding:24px;">No tasks here.</p>
+{% endfor %}
+{% endblock %}

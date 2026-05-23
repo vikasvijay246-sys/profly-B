@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from models import (db, User, Property, PropertyTenant, Payment, Room, RoomTenant,
                     VacateRequest, Worker, MaintenanceTask, TenantComplaint,
-                    PropertyExpense, now_utc)
+                    PropertyExpense, TaskStatusLog, now_utc)
 from routes import role_required
 from services import (generate_monthly_rent, mark_overdue_payments,
                       owner_payment_summary, push_notification, fmt_month,
@@ -22,8 +22,15 @@ from static.utils.validators import (
     optional_rent_month, optional_string,
     require_payment_status, optional_amount)
 from utils.errors import AppError, ValidationError
+from services.worker_task import WorkerTaskService, VALID_PAY_STATUS
 
 owner_bp = Blueprint("owner", __name__, url_prefix="/owner")
+_worker_svc = WorkerTaskService()
+
+
+def _socketio():
+    from app import socketio
+    return socketio
 _tenant_svc  = TenantService()
 _payment_svc = PaymentService()
 
@@ -852,9 +859,24 @@ def add_worker():
                 raise ValidationError("Invalid property selected for worker assignment.")
             worker.assigned_properties.append(prop)
 
+        is_temp = request.form.get("is_temp") == "1"
+        worker.is_temp = is_temp
+        portal_password = request.form.get("portal_password", "").strip()
+        enable_login = request.form.get("enable_login") == "1"
+        email = optional_string(request.form.get("email"), "email", max_len=120)
+        if email:
+            worker.email = email
+
         db.session.add(worker)
+        db.session.flush()
+
+        if enable_login and portal_password and not is_temp:
+            _worker_svc.enable_portal_login(worker, portal_password, email=worker.email)
+            flash("Worker added with app login.", "success")
+        else:
+            flash("Worker added.", "success")
+
         db.session.commit()
-        flash("Worker added.", "success")
     except ValidationError as e:
         db.session.rollback()
         flash(str(e), "error")
@@ -945,6 +967,8 @@ def add_maintenance_task():
             owner_id=current_user.id,
         )
         db.session.add(task)
+        db.session.flush()
+        _worker_svc.notify_task_assigned(_socketio(), task)
         db.session.commit()
         flash("Task assigned.", "success")
     except ValidationError as e:
@@ -956,6 +980,27 @@ def add_maintenance_task():
     return redirect(url_for("owner.maintenance", section="tasks"))
 
 
+@owner_bp.route("/maintenance/tasks/<int:tid>/verify", methods=["POST"])
+@login_required
+@role_required("owner")
+def verify_task_completion(tid):
+    task = MaintenanceTask.query.filter_by(id=tid, owner_id=current_user.id).first_or_404()
+    try:
+        task.owner_verified = True
+        db.session.commit()
+        if task.assigned_worker:
+            _worker_svc.notify_worker(
+                _socketio(), task.assigned_worker,
+                "Work verified", f"Owner confirmed: {task.title}",
+                "worker_verified",
+            )
+        flash("Completion verified.", "success")
+    except Exception:
+        db.session.rollback()
+        flash("Could not verify.", "error")
+    return redirect(url_for("owner.maintenance", section="tasks"))
+
+
 @owner_bp.route("/maintenance/tasks/<int:tid>/status", methods=["POST"])
 @login_required
 @role_required("owner")
@@ -963,8 +1008,24 @@ def update_task_status(tid):
     task = MaintenanceTask.query.filter_by(id=tid, owner_id=current_user.id).first_or_404()
     try:
         status = require_task_status(request.form.get("status"), "status")
+        old = task.status
         task.status = status
         task.completed_at = now_utc() if status == "completed" else None
+        if status == "completed":
+            task.owner_verified = request.form.get("owner_verified") == "1"
+        db.session.add(TaskStatusLog(
+            task_id=task.id,
+            worker_id=task.assigned_worker_id,
+            old_status=old,
+            new_status=status,
+            notes="Owner update",
+        ))
+        if task.assigned_worker and status in ("pending", "working") and old != status:
+            _worker_svc.notify_worker(
+                _socketio(), task.assigned_worker,
+                "Task updated", f"{task.title} → {status}",
+                "worker_task",
+            )
         db.session.commit()
         flash("Task status updated.", "success")
     except ValidationError as e:
@@ -1058,6 +1119,126 @@ def add_expense():
         db.session.rollback()
         flash("Unable to record expense.", "error")
     return redirect(url_for("owner.maintenance", section="expenses"))
+
+
+# ── Quick Work (real-world fast entry) ────────────────────────────────────────
+@owner_bp.route("/quick-work", methods=["GET", "POST"])
+@login_required
+@role_required("owner")
+def quick_work():
+    properties = Property.query.filter_by(
+        owner_id=current_user.id, is_deleted=False
+    ).order_by(Property.name).all()
+    workers = Worker.query.filter_by(
+        owner_id=current_user.id, active_status=True
+    ).order_by(Worker.full_name).all()
+
+    if request.method == "GET":
+        return render_template(
+            "owner/quick_work.html",
+            properties=properties,
+            workers=workers,
+        )
+
+    try:
+        title = require_string(request.form.get("title"), "title", max_len=220)
+        property_id = require_id(request.form.get("property_id"), "property_id")
+        prop = Property.query.filter_by(
+            id=property_id, owner_id=current_user.id, is_deleted=False
+        ).first_or_404()
+        room_number = optional_string(request.form.get("room_number"), "room_number", max_len=40)
+        floor = optional_string(request.form.get("floor"), "floor", max_len=40)
+        quantity = optional_string(request.form.get("quantity"), "quantity", max_len=60)
+        scheduled_time = optional_string(request.form.get("scheduled_time"), "scheduled_time", max_len=40)
+        amount = optional_amount(request.form.get("amount"), "amount")
+        status = require_task_status(request.form.get("status") or "pending", "status")
+        pay_status = (request.form.get("pay_status") or "none").strip().lower()
+        if pay_status not in VALID_PAY_STATUS:
+            pay_status = "none"
+        note = optional_string(request.form.get("note"), "note", max_len=1000)
+        worker_phone = optional_string(request.form.get("worker_phone"), "worker_phone", max_len=30)
+
+        assigned_worker_id = None
+        temp_worker_name = None
+        worker_mode = request.form.get("worker_mode", "existing")
+        if worker_mode == "existing":
+            wid = request.form.get("assigned_worker_id")
+            if wid:
+                assigned_worker_id = optional_id(wid, "assigned_worker_id")
+                Worker.query.filter_by(
+                    id=assigned_worker_id, owner_id=current_user.id
+                ).first_or_404()
+        else:
+            temp_name = require_string(request.form.get("temp_worker_name"), "temp_worker_name", max_len=150)
+            temp_worker_name = temp_name
+            temp_w = _worker_svc.find_or_create_temp_worker(
+                current_user.id, temp_name, phone=worker_phone
+            )
+            assigned_worker_id = temp_w.id
+
+        priority = "medium"
+        if request.form.get("urgent") == "1":
+            priority = "urgent"
+
+        task = MaintenanceTask(
+            title=title,
+            description=note,
+            property_id=prop.id,
+            room_number=room_number,
+            floor=floor,
+            quantity=quantity,
+            scheduled_time=scheduled_time,
+            temp_worker_name=temp_worker_name,
+            amount=amount,
+            pay_status=pay_status,
+            assigned_worker_id=assigned_worker_id,
+            priority=priority,
+            status=status,
+            created_by_owner_id=current_user.id,
+            owner_id=current_user.id,
+            completed_at=now_utc() if status == "completed" else None,
+            owner_verified=status == "completed",
+        )
+        db.session.add(task)
+        db.session.flush()
+        db.session.add(TaskStatusLog(
+            task_id=task.id,
+            worker_id=assigned_worker_id,
+            old_status=None,
+            new_status=status,
+            notes="Quick work created",
+        ))
+        _worker_svc.notify_task_assigned(_socketio(), task)
+        db.session.commit()
+        flash("Work saved.", "success")
+        return redirect(url_for("owner.quick_work"))
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Could not save work.", "error")
+    return redirect(url_for("owner.quick_work"))
+
+
+@owner_bp.route("/maintenance/workers/<int:wid>/enable-portal", methods=["POST"])
+@login_required
+@role_required("owner")
+def enable_worker_portal(wid):
+    worker = Worker.query.filter_by(id=wid, owner_id=current_user.id).first_or_404()
+    try:
+        password = require_string(request.form.get("portal_password"), "portal_password", max_len=64)
+        email = optional_string(request.form.get("email"), "email", max_len=120)
+        _worker_svc.enable_portal_login(worker, password, email=email)
+        db.session.commit()
+        flash(f"App login enabled for {worker.full_name}.", "success")
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Could not enable portal.", "error")
+    return redirect(url_for("owner.maintenance", section="workers"))
 
 
 # ── Notification ──────────────────────────────────────────────────────────────

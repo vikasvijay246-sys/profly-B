@@ -1,0 +1,77 @@
+{% extends "worker/base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block content %}
+<div id="offlineBanner" class="worker-offline-banner">Offline mode</div>
+
+<div class="worker-detail-box">
+  <h2 style="margin:0 0 8px;font-size:1.2rem;">{{ task.title }}</h2>
+  <p class="worker-card-meta" style="margin:0;">
+    {% if task.property %}<strong>{{ task.property.name }}</strong><br>{% endif %}
+    {% if task.room_number %}Room {{ task.room_number }}{% endif %}
+    {% if task.floor %}{% if task.room_number %} · {% endif %}{{ task.floor }}{% endif %}
+    {% if task.scheduled_time %}<br>Time: {{ task.scheduled_time }}{% endif %}
+    {% if task.quantity %}<br>Qty: {{ task.quantity }}{% endif %}
+    {% if task.amount %}<br>Amount: ₹{{ "%.0f"|format(task.amount) }}{% endif %}
+    {% if task.pay_status and task.pay_status != 'none' %}<br>Pay: {{ task.pay_status.replace('_',' ') }}{% endif %}
+  </p>
+  {% if task.description %}
+  <p style="margin:12px 0 0;font-size:0.95rem;">{{ task.description }}</p>
+  {% endif %}
+  <span class="worker-pill {{ task.status }}">{{ task.status }}</span>
+  {% if task.priority in ('urgent','high') %}<span class="worker-pill urgent">{{ task.priority }}</span>{% endif %}
+</div>
+
+{% if task.status != 'completed' %}
+<form method="POST" action="{{ url_for('worker.task_status', tid=task.id) }}" id="statusForm">
+  <input type="hidden" name="idempotency_key" value="{{ task.id }}-{{ task.updated_at }}"/>
+  <div class="worker-section-title">Update status</div>
+  <div class="worker-status-row">
+    <button type="submit" name="status" value="pending" class="{% if task.status == 'pending' %}active{% endif %}">Pending</button>
+    <button type="submit" name="status" value="working" class="{% if task.status == 'working' %}active{% endif %}">Working</button>
+    <button type="submit" name="status" value="completed" formaction="{{ url_for('worker.task_complete', tid=task.id) }}" formmethod="POST">Done</button>
+  </div>
+</form>
+
+<form method="POST" action="{{ url_for('worker.task_complete', tid=task.id) }}" enctype="multipart/form-data" style="margin-top:16px;">
+  <input type="hidden" name="idempotency_key" id="idemKey" value=""/>
+  <div class="worker-form-group">
+    <label>Completion note</label>
+    <textarea name="completion_notes" rows="2" placeholder="What was done?"></textarea>
+  </div>
+  <div class="worker-form-group">
+    <label>Photo proof (optional)</label>
+    <input type="file" name="proof_image" accept="image/*" capture="environment"/>
+  </div>
+  <button type="submit" class="worker-btn worker-btn-primary">Mark complete</button>
+</form>
+{% else %}
+<div class="worker-detail-box">
+  <p><strong>Completed</strong>{% if task.owner_verified %} · Verified by owner{% else %} · Awaiting owner check{% endif %}</p>
+  {% if task.completion_notes %}<p>{{ task.completion_notes }}</p>{% endif %}
+  <div class="worker-proof-preview">
+    {% for img in task.get_proof_list() %}
+    <img src="{{ url_for('static', filename=img) if not img.startswith('http') else img }}" alt="proof"/>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<a href="{{ url_for('worker.tasks') }}" class="worker-btn worker-btn-secondary">← Back</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('idemKey').value = 'complete-{{ task.id }}-' + Date.now();
+const form = document.querySelector('form[enctype]');
+if (form) {
+  form.addEventListener('submit', function(e) {
+    if (!navigator.onLine) {
+      e.preventDefault();
+      const fd = new FormData(form);
+      workerQueueAction({ url: form.action, method: 'POST', body: fd });
+      alert('Saved offline. Will upload when internet returns.');
+    }
+  });
+}
+</script>
+{% endblock %}

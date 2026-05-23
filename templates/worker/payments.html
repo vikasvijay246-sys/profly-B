@@ -1,0 +1,31 @@
+{% extends "worker/base.html" %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<div class="worker-detail-box">
+  <p style="margin:0;"><strong>Salary type:</strong> {{ salary.salary_type }}</p>
+  {% if salary.salary_amount %}<p><strong>Rate:</strong> ₹{{ "%.0f"|format(salary.salary_amount) }}</p>{% endif %}
+  <p><strong>Paid this month:</strong> ₹{{ "%.0f"|format(salary.paid_this_month) }}</p>
+  <p><strong>Pending expenses:</strong> ₹{{ "%.0f"|format(salary.pending_expenses) }}</p>
+  <p><strong>Task payments due:</strong> ₹{{ "%.0f"|format(salary.pending_task_payments) }}</p>
+</div>
+
+<div class="worker-section-title">Recent task payments</div>
+{% for t in task_payments %}
+<div class="worker-card">
+  <p class="worker-card-title">{{ t.title }}</p>
+  <p class="worker-card-meta">₹{{ "%.0f"|format(t.amount) if t.amount else 0 }} · {{ t.pay_status }}</p>
+</div>
+{% else %}
+<p style="color:var(--text-muted);font-size:0.9rem;">No task amounts logged.</p>
+{% endfor %}
+
+<div class="worker-section-title">Expense records</div>
+{% for e in expenses %}
+<div class="worker-card">
+  <p class="worker-card-title">{{ e.expense_type }} — ₹{{ "%.0f"|format(e.amount) }}</p>
+  <p class="worker-card-meta">{{ e.payment_status }} · {{ e.expense_date }}</p>
+</div>
+{% else %}
+<p style="color:var(--text-muted);font-size:0.9rem;">No expense records.</p>
+{% endfor %}
+{% endblock %}

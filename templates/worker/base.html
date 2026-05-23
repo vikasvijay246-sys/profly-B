@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#0f766e"/>
+  <title>{% block title %}Work{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/worker.css') }}"/>
+  {% block head %}{% endblock %}
+</head>
+<body class="worker-body" {% if current_user.is_authenticated %}data-user-id="{{ current_user.id }}"{% endif %}>
+
+<header class="worker-topbar">
+  <a href="{{ url_for('worker.dashboard') }}" class="worker-brand">🛠 Work</a>
+  <div class="worker-topbar-actions">
+    <a href="{{ url_for('worker.notifications') }}" class="worker-icon-btn" aria-label="Alerts">
+      🔔
+      {% if unread_count|default(0) > 0 %}<span class="worker-badge">{{ unread_count }}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('auth.logout') }}" class="worker-icon-btn" aria-label="Logout">⏻</a>
+  </div>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="worker-flashes">
+    {% for cat, msg in messages %}
+    <div class="flash flash-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main class="worker-main">
+  {% block content %}{% endblock %}
+</main>
+
+<nav class="worker-bottom-nav" aria-label="Main">
+  <a href="{{ url_for('worker.dashboard') }}" class="{% if request.endpoint == 'worker.dashboard' %}active{% endif %}">
+    <span>⊞</span><small>Home</small>
+  </a>
+  <a href="{{ url_for('worker.tasks') }}" class="{% if request.endpoint in ('worker.tasks', 'worker.task_detail') %}active{% endif %}">
+    <span>📋</span><small>Tasks</small>
+  </a>
+  <a href="{{ url_for('worker.payments') }}" class="{% if request.endpoint == 'worker.payments' %}active{% endif %}">
+    <span>₹</span><small>Pay</small>
+  </a>
+  <a href="{{ url_for('worker.properties') }}" class="{% if request.endpoint == 'worker.properties' %}active{% endif %}">
+    <span>🏠</span><small>Sites</small>
+  </a>
+</nav>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/worker.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

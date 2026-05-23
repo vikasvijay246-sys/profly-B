@@ -42,7 +42,7 @@ class User(UserMixin, db.Model):
     phone         = db.Column(db.String(30),  unique=True, nullable=False)
     full_name     = db.Column(db.String(150), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.String(10),  nullable=False, default="tenant")  # admin|owner|tenant
+    role          = db.Column(db.String(10),  nullable=False, default="tenant")  # admin|owner|tenant|worker
     is_active     = db.Column(db.Boolean, default=True,  nullable=False)
     # owner_id: who created this tenant / which owner manages this tenant
     owner_id      = db.Column(db.Integer,
@@ -277,10 +277,16 @@ class Worker(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     full_name     = db.Column(db.String(150), nullable=False)
     phone_number  = db.Column(db.String(30), nullable=False)
+    email         = db.Column(db.String(120), nullable=True)
     role          = db.Column(db.String(80), nullable=False)
     salary_type   = db.Column(db.String(20), nullable=False, default="monthly")
     salary_amount = db.Column(db.Numeric(10, 2), nullable=True)
     active_status = db.Column(db.Boolean, default=True, nullable=False)
+    is_temp       = db.Column(db.Boolean, default=False, nullable=False)
+    can_login     = db.Column(db.Boolean, default=False, nullable=False)
+    user_id       = db.Column(db.Integer,
+                               db.ForeignKey("users.id", ondelete="SET NULL"),
+                               nullable=True, unique=True)
     joined_date   = db.Column(db.Date, nullable=True)
     notes         = db.Column(db.Text, nullable=True)
     owner_id      = db.Column(db.Integer,
@@ -304,16 +310,25 @@ class Worker(db.Model):
                                foreign_keys="PropertyExpense.worker_id",
                                lazy="dynamic")
     owner = db.relationship("User", foreign_keys=[owner_id])
+    portal_user = db.relationship("User", foreign_keys=[user_id],
+                                  backref=db.backref("worker_profile", uselist=False))
+
+    def portal_user_id(self):
+        return self.user_id if self.can_login and self.active_status else None
 
     def to_dict(self):
         return {
             "id": self.id,
             "full_name": self.full_name,
             "phone_number": self.phone_number,
+            "email": self.email,
             "role": self.role,
             "salary_type": self.salary_type,
             "salary_amount": float(self.salary_amount) if self.salary_amount else None,
             "active_status": self.active_status,
+            "is_temp": self.is_temp,
+            "can_login": self.can_login,
+            "user_id": self.user_id,
             "joined_date": self.joined_date.isoformat() if self.joined_date else None,
             "notes": self.notes,
             "owner_id": self.owner_id,
@@ -324,6 +339,7 @@ class Worker(db.Model):
     __table_args__ = (
         Index("ix_workers_owner_id", "owner_id"),
         Index("ix_workers_role_owner", "role", "owner_id"),
+        Index("ix_workers_user_id", "user_id"),
     )
 
 
@@ -337,6 +353,12 @@ class MaintenanceTask(db.Model):
                                    db.ForeignKey("properties.id", ondelete="SET NULL"),
                                    nullable=False)
     room_number        = db.Column(db.String(40), nullable=True)
+    floor              = db.Column(db.String(40), nullable=True)
+    quantity           = db.Column(db.String(60), nullable=True)
+    scheduled_time     = db.Column(db.String(40), nullable=True)
+    temp_worker_name   = db.Column(db.String(150), nullable=True)
+    amount             = db.Column(db.Numeric(10, 2), nullable=True)
+    pay_status         = db.Column(db.String(20), default="none", nullable=False)
     assigned_worker_id = db.Column(db.Integer,
                                    db.ForeignKey("workers.id", ondelete="SET NULL"),
                                    nullable=True)
@@ -347,6 +369,9 @@ class MaintenanceTask(db.Model):
                                    nullable=False)
     completion_notes   = db.Column(db.Text, nullable=True)
     proof_images       = db.Column(db.Text, nullable=True)
+    owner_verified     = db.Column(db.Boolean, default=False, nullable=False)
+    completion_token   = db.Column(db.String(64), nullable=True, unique=True)
+    due_at             = db.Column(db.DateTime, nullable=True)
     created_at         = db.Column(db.DateTime, default=now_utc, nullable=False)
     updated_at         = db.Column(db.DateTime, default=now_utc,
                                    onupdate=now_utc, nullable=False)
@@ -359,31 +384,86 @@ class MaintenanceTask(db.Model):
     assigned_worker = db.relationship("Worker", back_populates="tasks",
                                       foreign_keys=[assigned_worker_id])
     creator = db.relationship("User", foreign_keys=[created_by_owner_id])
+    status_logs = db.relationship("TaskStatusLog", back_populates="task",
+                                  cascade="all, delete-orphan", lazy="dynamic")
 
-    def to_dict(self):
-        return {
+    def worker_display_name(self):
+        if self.assigned_worker:
+            return self.assigned_worker.full_name
+        return self.temp_worker_name or "—"
+
+    def get_proof_list(self):
+        import json
+        if not self.proof_images:
+            return []
+        try:
+            data = json.loads(self.proof_images)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return [u for u in self.proof_images.split(",") if u.strip()]
+
+    def to_dict(self, for_worker=False):
+        d = {
             "id": self.id,
             "title": self.title,
             "description": self.description,
             "property_id": self.property_id,
+            "property_name": self.property.name if self.property else None,
             "room_number": self.room_number,
+            "floor": self.floor,
+            "quantity": self.quantity,
+            "scheduled_time": self.scheduled_time,
+            "temp_worker_name": self.temp_worker_name,
+            "amount": float(self.amount) if self.amount else None,
+            "pay_status": self.pay_status,
             "assigned_worker_id": self.assigned_worker_id,
+            "worker_name": self.worker_display_name(),
             "priority": self.priority,
             "status": self.status,
-            "created_by_owner_id": self.created_by_owner_id,
+            "owner_verified": self.owner_verified,
             "completion_notes": self.completion_notes,
-            "proof_images": self.proof_images,
+            "proof_images": self.get_proof_list(),
             "created_at": to_ist(self.created_at),
             "updated_at": to_ist(self.updated_at),
             "completed_at": to_ist(self.completed_at),
-            "owner_id": self.owner_id,
+            "due_at": to_ist(self.due_at),
         }
+        if not for_worker:
+            d["created_by_owner_id"] = self.created_by_owner_id
+            d["owner_id"] = self.owner_id
+        return d
 
     __table_args__ = (
         Index("ix_maintenance_tasks_owner_id", "owner_id"),
         Index("ix_maintenance_tasks_property_id", "property_id"),
         Index("ix_maintenance_tasks_status", "status"),
         Index("ix_maintenance_tasks_priority", "priority"),
+        Index("ix_maintenance_tasks_worker_status", "assigned_worker_id", "status"),
+    )
+
+
+class TaskStatusLog(db.Model):
+    """Worker task history — status changes."""
+    __tablename__ = "task_status_logs"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    task_id    = db.Column(db.Integer,
+                            db.ForeignKey("maintenance_tasks.id", ondelete="CASCADE"),
+                            nullable=False)
+    worker_id  = db.Column(db.Integer,
+                            db.ForeignKey("workers.id", ondelete="SET NULL"),
+                            nullable=True)
+    old_status = db.Column(db.String(20), nullable=True)
+    new_status = db.Column(db.String(20), nullable=False)
+    notes      = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=now_utc, nullable=False)
+
+    task   = db.relationship("MaintenanceTask", back_populates="status_logs")
+    worker = db.relationship("Worker", foreign_keys=[worker_id])
+
+    __table_args__ = (
+        Index("ix_task_status_logs_task_id", "task_id"),
+        Index("ix_task_status_logs_worker_id", "worker_id"),
     )
 
 

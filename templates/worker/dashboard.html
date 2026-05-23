@@ -1,0 +1,53 @@
+{% extends "worker/base.html" %}
+{% block title %}My Work{% endblock %}
+{% block content %}
+<div id="offlineBanner" class="worker-offline-banner">No internet — changes will sync when back online</div>
+
+<h1 class="worker-greeting">Hi, {{ worker.full_name.split()[0] }}</h1>
+
+<div class="worker-stats">
+  <div class="worker-stat"><strong>{{ pending_tasks|length }}</strong><small>Pending</small></div>
+  <div class="worker-stat"><strong>{{ urgent_tasks|length }}</strong><small>Urgent</small></div>
+  <div class="worker-stat"><strong>{{ completed_tasks|length }}</strong><small>Done</small></div>
+</div>
+
+{% if urgent_tasks %}
+<div class="worker-section-title">Urgent</div>
+{% for task in urgent_tasks[:5] %}
+<a href="{{ url_for('worker.task_detail', tid=task.id) }}" class="worker-card urgent">
+  <p class="worker-card-title">{{ task.title }}</p>
+  <p class="worker-card-meta">
+    {% if task.property %}{{ task.property.name }}{% endif %}
+    {% if task.room_number %} · Room {{ task.room_number }}{% elif task.floor %} · {{ task.floor }}{% endif %}
+  </p>
+  <span class="worker-pill urgent">{{ task.priority }}</span>
+  <span class="worker-pill {{ task.status }}">{{ task.status }}</span>
+</a>
+{% endfor %}
+{% endif %}
+
+<div class="worker-section-title">Today</div>
+{% for task in today_tasks[:8] %}
+<a href="{{ url_for('worker.task_detail', tid=task.id) }}" class="worker-card">
+  <p class="worker-card-title">{{ task.title }}</p>
+  <p class="worker-card-meta">
+    {% if task.room_number %}Room {{ task.room_number }}{% endif %}
+    {% if task.scheduled_time %} · {{ task.scheduled_time }}{% endif %}
+  </p>
+  <span class="worker-pill {{ task.status }}">{{ task.status }}</span>
+</a>
+{% else %}
+<p style="color:var(--text-muted);font-size:0.95rem;">No tasks for today.</p>
+{% endfor %}
+
+{% if salary.pending_task_payments or salary.pending_expenses %}
+<div class="worker-section-title">Payment</div>
+<div class="worker-detail-box">
+  {% if salary.pending_task_payments %}<p>Task pay pending: <strong>₹{{ "%.0f"|format(salary.pending_task_payments) }}</strong></p>{% endif %}
+  {% if salary.paid_this_month %}<p>Paid this month: <strong>₹{{ "%.0f"|format(salary.paid_this_month) }}</strong></p>{% endif %}
+  <a href="{{ url_for('worker.payments') }}" class="worker-btn worker-btn-secondary" style="margin-top:10px;">View payments</a>
+</div>
+{% endif %}
+
+<a href="{{ url_for('worker.tasks') }}" class="worker-btn worker-btn-primary">All tasks</a>
+{% endblock %}

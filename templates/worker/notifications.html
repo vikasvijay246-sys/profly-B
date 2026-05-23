@@ -1,0 +1,17 @@
+{% extends "worker/base.html" %}
+{% block title %}Alerts{% endblock %}
+{% block content %}
+<form method="POST" action="{{ url_for('worker.notifications_read') }}" style="margin-bottom:12px;">
+  <button type="submit" class="worker-btn worker-btn-secondary">Mark all read</button>
+</form>
+
+{% for n in notifications %}
+<div class="worker-card" style="{% if not n.is_read %}border-left:3px solid #0f766e;{% endif %}">
+  <p class="worker-card-title" style="font-size:0.95rem;">{{ n.title }}</p>
+  <p class="worker-card-meta">{{ n.body }}</p>
+  <small style="color:var(--text-muted);">{{ n.created_at }}</small>
+</div>
+{% else %}
+<p style="text-align:center;color:var(--text-muted);">No alerts.</p>
+{% endfor %}
+{% endblock %}

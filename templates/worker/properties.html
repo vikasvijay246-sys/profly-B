@@ -1,0 +1,12 @@
+{% extends "worker/base.html" %}
+{% block title %}My sites{% endblock %}
+{% block content %}
+{% for p in properties %}
+<div class="worker-card">
+  <p class="worker-card-title">{{ p.name }}</p>
+  <p class="worker-card-meta">{{ p.address or p.city or '' }}</p>
+</div>
+{% else %}
+<p style="text-align:center;color:var(--text-muted);padding:20px;">No properties assigned yet.</p>
+{% endfor %}
+{% endblock %}

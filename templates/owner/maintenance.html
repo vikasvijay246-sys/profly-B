@@ -62,6 +62,12 @@
 </div>
 
 {% if section == 'overview' %}
+<div class="card" style="margin-bottom:16px;border:2px solid #0f766e;">
+  <div class="card-body" style="padding:16px;text-align:center;">
+    <a href="{{ url_for('owner.quick_work') }}" class="btn btn-primary btn-full" style="min-height:52px;font-size:1.05rem;">⚡ Add Work (fast)</a>
+    <p style="margin:8px 0 0;font-size:0.85rem;color:var(--text-muted);">AC repair, cleaning, delivery — done in seconds</p>
+  </div>
+</div>
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h2>Quick actions</h2></div>
   <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -101,6 +107,10 @@
         </div>
       </div>
       {% endif %}
+      <label class="checkbox-label"><input type="checkbox" name="is_temp" value="1"> Temporary worker (no app login)</label>
+      <label class="checkbox-label"><input type="checkbox" name="enable_login" value="1" id="enableLoginCb"> Enable worker app login</label>
+      <input type="email" name="email" class="form-input" placeholder="Email for login (optional)">
+      <input type="password" name="portal_password" class="form-input" placeholder="App password (if login enabled)" id="portalPw">
       <button type="submit" class="btn btn-primary btn-full">Save worker</button>
     </form>
   </div>
@@ -119,9 +129,15 @@
           <td>{% for prop in worker.assigned_properties %}<span class="maintenance-tag">{{ prop.name }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</td>
           <td>{{ 'Active' if worker.active_status else 'Inactive' }}</td>
           <td>
-            <form method="POST" action="{{ url_for('owner.toggle_worker_status', wid=worker.id) }}">
+            <form method="POST" action="{{ url_for('owner.toggle_worker_status', wid=worker.id) }}" style="display:inline;">
               <button type="submit" class="btn btn-sm {% if worker.active_status %}btn-ghost{% else %}btn-primary{% endif %}">{{ 'Deactivate' if worker.active_status else 'Activate' }}</button>
             </form>
+            {% if not worker.can_login and not worker.is_temp %}
+            <form method="POST" action="{{ url_for('owner.enable_worker_portal', wid=worker.id) }}" style="display:grid;gap:4px;margin-top:6px;">
+              <input type="password" name="portal_password" class="form-input btn-sm" placeholder="Set app password" required>
+              <button type="submit" class="btn btn-sm btn-primary">Enable app</button>
+            </form>
+            {% elif worker.can_login %}<span class="maintenance-badge">App on</span>{% endif %}
           </td>
         </tr>
         {% else %}
@@ -167,9 +183,14 @@
         <tr>
           <td>{{ task.title }}<br><small>{{ task.description }}</small></td>
           <td>{{ task.property.name if task.property else '—' }}</td>
-          <td>{{ task.assigned_worker.full_name if task.assigned_worker else 'Unassigned' }}</td>
-          <td>{{ task.status.capitalize() }}</td>
+          <td>{{ task.worker_display_name() }}</td>
+          <td>{{ task.status.capitalize() }}{% if task.amount %} · ₹{{ "%.0f"|format(task.amount) }}{% endif %}{% if task.pay_status != 'none' %} · {{ task.pay_status }}{% endif %}</td>
           <td>
+            {% if task.status == 'completed' and not task.owner_verified %}
+            <form method="POST" action="{{ url_for('owner.verify_task_completion', tid=task.id) }}" style="margin-bottom:6px;">
+              <button type="submit" class="btn btn-sm btn-primary">Verify done</button>
+            </form>
+            {% endif %}
             <form method="POST" action="{{ url_for('owner.update_task_status', tid=task.id) }}" style="display:grid;gap:6px;">
               <select name="status" class="form-input btn-sm" style="width:100%;">
                 <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending</option>

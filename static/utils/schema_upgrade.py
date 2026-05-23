@@ -10,6 +10,14 @@ def _sqlite_columns(conn, table: str) -> set:
     return {r[1] for r in rows}
 
 
+def _table_exists(conn, table: str) -> bool:
+    row = conn.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table' AND name=:t"),
+        {"t": table},
+    ).fetchone()
+    return row is not None
+
+
 def upgrade_sqlite_schema(db):
     """Add missing columns/indexes for lightweight migrations."""
     bind = db.engine
@@ -30,6 +38,31 @@ def upgrade_sqlite_schema(db):
         mcols = _sqlite_columns(conn, "messages")
         if "property_id" not in mcols:
             conn.execute(text("ALTER TABLE messages ADD COLUMN property_id INTEGER"))
+
+        wcols = _sqlite_columns(conn, "workers") if _table_exists(conn, "workers") else set()
+        for col, typ in [
+            ("email", "VARCHAR(120)"),
+            ("is_temp", "BOOLEAN DEFAULT 0"),
+            ("can_login", "BOOLEAN DEFAULT 0"),
+            ("user_id", "INTEGER"),
+        ]:
+            if wcols and col not in wcols:
+                conn.execute(text(f"ALTER TABLE workers ADD COLUMN {col} {typ}"))
+
+        tcols = _sqlite_columns(conn, "maintenance_tasks") if _table_exists(conn, "maintenance_tasks") else set()
+        for col, typ in [
+            ("floor", "VARCHAR(40)"),
+            ("quantity", "VARCHAR(60)"),
+            ("scheduled_time", "VARCHAR(40)"),
+            ("temp_worker_name", "VARCHAR(150)"),
+            ("amount", "NUMERIC(10,2)"),
+            ("pay_status", "VARCHAR(20) DEFAULT 'none'"),
+            ("owner_verified", "BOOLEAN DEFAULT 0"),
+            ("completion_token", "VARCHAR(64)"),
+            ("due_at", "DATETIME"),
+        ]:
+            if tcols and col not in tcols:
+                conn.execute(text(f"ALTER TABLE maintenance_tasks ADD COLUMN {col} {typ}"))
 
         conn.commit()
 
@@ -70,6 +103,31 @@ def upgrade_sqlite_schema(db):
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_vacate_requests_property_id ON vacate_requests(property_id)"
         ))
+
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS task_status_logs ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "task_id INTEGER NOT NULL, "
+            "worker_id INTEGER, "
+            "old_status VARCHAR(20), "
+            "new_status VARCHAR(20) NOT NULL, "
+            "notes TEXT, "
+            "created_at DATETIME NOT NULL, "
+            "FOREIGN KEY(task_id) REFERENCES maintenance_tasks(id) ON DELETE CASCADE, "
+            "FOREIGN KEY(worker_id) REFERENCES workers(id) ON DELETE SET NULL"
+            ")"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_task_status_logs_task_id ON task_status_logs(task_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_task_status_logs_worker_id ON task_status_logs(worker_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_maintenance_tasks_worker_status "
+            "ON maintenance_tasks(assigned_worker_id, status)"
+        ))
+        conn.commit()
 
     # Unique partial index for tenant IDs (SQLite)
     with bind.connect() as conn:

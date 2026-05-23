@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Add Work — PropFlow{% endblock %}
+{% block page_title %}Add Work{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/worker.css') }}"/>
+<style>
+  .qw-wrap { max-width: 520px; margin: 0 auto; }
+  .qw-hero { background: linear-gradient(135deg, #0f766e, #14b8a6); color: #fff; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+  .qw-hero h2 { margin: 0 0 6px; font-size: 1.35rem; }
+  .qw-hero p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+  .qw-field { margin-bottom: 12px; }
+  .qw-field label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; }
+  .qw-field input, .qw-field select, .qw-field textarea {
+    width: 100%; min-height: 48px; padding: 12px; border-radius: 12px;
+    border: 1px solid var(--border); font-size: 1rem; box-sizing: border-box;
+  }
+  .qw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .qw-save { min-height: 56px; font-size: 1.1rem; font-weight: 700; border-radius: 14px; width: 100%; border: none; background: #0f766e; color: #fff; cursor: pointer; }
+  .qw-worker-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
+  .qw-worker-toggle label { flex: 1; text-align: center; padding: 12px; border-radius: 12px; border: 2px solid var(--border); cursor: pointer; font-weight: 600; }
+  .qw-worker-toggle input { display: none; }
+  .qw-worker-toggle input:checked + span { color: #0f766e; }
+  .qw-worker-toggle label:has(input:checked) { border-color: #0f766e; background: #ccfbf1; }
+</style>
+
+<div class="qw-wrap">
+  <div class="qw-hero">
+    <h2>⚡ Quick Work</h2>
+    <p>Open → Add work → Done. No long forms.</p>
+  </div>
+
+  <form method="POST" action="{{ url_for('owner.quick_work') }}">
+    <div class="qw-field">
+      <label>Work *</label>
+      <input type="text" name="title" placeholder="AC Repair, Bathroom cleaning…" required autofocus/>
+    </div>
+
+    <div class="qw-field">
+      <label>Property *</label>
+      <select name="property_id" required>
+        <option value="">Select PG</option>
+        {% for p in properties %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="qw-row">
+      <div class="qw-field">
+        <label>Room</label>
+        <input type="text" name="room_number" placeholder="204"/>
+      </div>
+      <div class="qw-field">
+        <label>Floor</label>
+        <input type="text" name="floor" placeholder="3rd"/>
+      </div>
+    </div>
+
+    <div class="qw-field">
+      <label>Worker</label>
+      <div class="qw-worker-toggle">
+        <label><input type="radio" name="worker_mode" value="existing" checked onchange="toggleWorkerMode()"/><span> Listed</span></label>
+        <label><input type="radio" name="worker_mode" value="temp" onchange="toggleWorkerMode()"/><span> Quick name</span></label>
+      </div>
+      <div id="existingWorker">
+        <select name="assigned_worker_id" class="form-input" style="width:100%;min-height:48px;">
+          <option value="">— Optional —</option>
+          {% for w in workers %}<option value="{{ w.id }}">{{ w.full_name }}{% if w.is_temp %} (temp){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <div id="tempWorker" style="display:none;">
+        <input type="text" name="temp_worker_name" placeholder="Raju, Suresh…"/>
+        <input type="text" name="worker_phone" placeholder="Phone (optional)" style="margin-top:8px;"/>
+      </div>
+    </div>
+
+    <div class="qw-row">
+      <div class="qw-field">
+        <label>Amount ₹</label>
+        <input type="number" step="1" name="amount" placeholder="500"/>
+      </div>
+      <div class="qw-field">
+        <label>Time</label>
+        <input type="text" name="scheduled_time" placeholder="Morning"/>
+      </div>
+    </div>
+
+    <div class="qw-field">
+      <label>Quantity</label>
+      <input type="text" name="quantity" placeholder="5 cans"/>
+    </div>
+
+    <div class="qw-row">
+      <div class="qw-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="pending">Pending</option>
+          <option value="working">Working</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="qw-field">
+        <label>Payment</label>
+        <select name="pay_status">
+          <option value="none">—</option>
+          <option value="pending">Pending pay</option>
+          <option value="pending_payment">Pending payment</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="qw-field">
+      <label><input type="checkbox" name="urgent" value="1"/> Urgent</label>
+    </div>
+
+    <div class="qw-field">
+      <label>Note</label>
+      <textarea name="note" rows="2" placeholder="Optional note"></textarea>
+    </div>
+
+    <button type="submit" class="qw-save">Save work</button>
+  </form>
+
+  <p style="text-align:center;margin-top:16px;">
+    <a href="{{ url_for('owner.maintenance') }}">Full maintenance center →</a>
+  </p>
+</div>
+
+<script>
+function toggleWorkerMode() {
+  const temp = document.querySelector('input[name=worker_mode][value=temp]').checked;
+  document.getElementById('existingWorker').style.display = temp ? 'none' : 'block';
+  document.getElementById('tempWorker').style.display = temp ? 'block' : 'none';
+}
+</script>
+{% endblock %}

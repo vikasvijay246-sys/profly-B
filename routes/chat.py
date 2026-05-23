@@ -11,6 +11,8 @@ from flask import (
     jsonify,
     current_app,
     make_response,
+    redirect,
+    url_for,
 )
 from flask_login import login_required, current_user
 from flask_socketio import emit, join_room, leave_room
@@ -56,6 +58,8 @@ def _rooms_for_chat(user: User) -> list:
 @chat_bp.route("/")
 @login_required
 def index():
+    if current_user.role == "worker":
+        return redirect(url_for("worker.dashboard"))
     # Build DM contact list
     if current_user.role == "admin":
         users = User.query.filter(
