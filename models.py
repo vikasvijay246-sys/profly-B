@@ -294,6 +294,15 @@ class Worker(db.Model):
         "Property", secondary=worker_property_assignments,
         back_populates="workers", lazy="dynamic"
     )
+    tasks = db.relationship("MaintenanceTask", back_populates="assigned_worker",
+                            foreign_keys="MaintenanceTask.assigned_worker_id",
+                            lazy="dynamic")
+    complaints = db.relationship("TenantComplaint", back_populates="assigned_worker",
+                                 foreign_keys="TenantComplaint.assigned_worker_id",
+                                 lazy="dynamic")
+    expenses = db.relationship("PropertyExpense", back_populates="worker",
+                               foreign_keys="PropertyExpense.worker_id",
+                               lazy="dynamic")
     owner = db.relationship("User", foreign_keys=[owner_id])
 
     def to_dict(self):
@@ -347,7 +356,8 @@ class MaintenanceTask(db.Model):
                                    nullable=False)
 
     property = db.relationship("Property", foreign_keys=[property_id])
-    assigned_worker = db.relationship("Worker", foreign_keys=[assigned_worker_id])
+    assigned_worker = db.relationship("Worker", back_populates="tasks",
+                                      foreign_keys=[assigned_worker_id])
     creator = db.relationship("User", foreign_keys=[created_by_owner_id])
 
     def to_dict(self):
@@ -403,7 +413,8 @@ class TenantComplaint(db.Model):
 
     tenant = db.relationship("User", foreign_keys=[tenant_id])
     property = db.relationship("Property", foreign_keys=[property_id])
-    assigned_worker = db.relationship("Worker", foreign_keys=[assigned_worker_id])
+    assigned_worker = db.relationship("Worker", back_populates="complaints",
+                                      foreign_keys=[assigned_worker_id])
 
     def to_dict(self):
         return {
@@ -450,7 +461,8 @@ class PropertyExpense(db.Model):
                                nullable=False)
 
     property = db.relationship("Property", foreign_keys=[property_id])
-    worker   = db.relationship("Worker", foreign_keys=[worker_id])
+    worker   = db.relationship("Worker", back_populates="expenses",
+                               foreign_keys=[worker_id])
 
     def to_dict(self):
         return {
