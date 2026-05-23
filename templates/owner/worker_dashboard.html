@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ worker.full_name }} — Worker Dashboard{% endblock %}
+{% block page_title %}Worker Dashboard{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:16px;padding:16px;">
+  <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;">
+    <div>
+      <h2 style="margin:0 0 8px;">{{ worker.full_name }}</h2>
+      <p style="margin:0;color:var(--text-muted);font-size:0.95rem;">Role: {{ worker.role }} • Phone: {{ worker.phone_number }}</p>
+      {% if worker.joined_date %}
+      <p style="margin:8px 0 0;font-size:0.9rem;color:var(--text-muted);">Joined {{ worker.joined_date }}</p>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('owner.maintenance', section='workers') }}" class="btn btn-ghost btn-sm" style="white-space:nowrap;">Back to list</a>
+  </div>
+</div>
+
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card"><div class="stat-icon">🕒</div><div class="stat-body"><div class="stat-value">{{ pending_tasks }}</div><div class="stat-label">Pending</div></div></div>
+  <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-body"><div class="stat-value">{{ completed_today }}</div><div class="stat-label">Done today</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🚨</div><div class="stat-body"><div class="stat-value">{{ unresolved_complaints }}</div><div class="stat-label">Open complaints</div></div></div>
+  <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-body"><div class="stat-value">₹{{ "{:,}".format(monthly_expense) }}</div><div class="stat-label">Expense this month</div></div></div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Assigned properties</h2></div>
+  <div class="card-body" style="display:grid;gap:10px;">
+    {% if worker.assigned_properties|length %}
+      {% for prop in worker.assigned_properties %}
+      <div style="padding:12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);">{{ prop.name }}</div>
+      {% endfor %}
+    {% else %}
+      <div class="text-muted">No properties assigned yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Recent tasks</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Task</th><th>Status</th><th>Property</th></tr></thead>
+      <tbody>
+        {% for task in recent_tasks %}
+        <tr>
+          <td>{{ task.title }}<br><small>{{ task.room_number }} • {{ task.priority }}</small></td>
+          <td>{{ task.status.capitalize() }}</td>
+          <td>{{ task.property.name if task.property else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No recent tasks.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Recent complaints</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Issue</th><th>Status</th><th>Tenant</th></tr></thead>
+      <tbody>
+        {% for complaint in recent_complaints %}
+        <tr>
+          <td>{{ complaint.issue_title }}<br><small>{{ complaint.issue_category }}</small></td>
+          <td>{{ complaint.status.capitalize() }}</td>
+          <td>{{ complaint.tenant.full_name if complaint.tenant else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No recent complaints.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Recent expenses</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for expense in recent_expenses %}
+        <tr>
+          <td>{{ expense.expense_type }}</td>
+          <td>₹{{ "{:.2f}".format(expense.amount) }}</td>
+          <td>{{ expense.expense_date }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No recent expenses.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

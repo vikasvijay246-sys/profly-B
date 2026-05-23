@@ -157,6 +157,7 @@ title:hover {
   <a href="{{ url_for('owner.tenants') }}"  class="qa-btn"><span>👤</span>Add Tenant</a>
   <a href="{{ url_for('owner.payments') }}" class="qa-btn"><span>💳</span>Payments</a>
   <a href="{{ url_for('rooms.index') }}"    class="qa-btn"><span>🚪</span>Rooms</a>
+  <a href="{{ url_for('owner.maintenance', section='overview') }}" class="qa-btn"><span>🛠️</span>Maintenance</a>
   {% endif %}
   <a href="{{ url_for('chat.index') }}"     class="qa-btn"><span>💬</span>Message</a>
   <button onclick="openModal('genRentModal')" class="qa-btn qa-btn-accent"><span>⚡</span>Gen Rent</button>
@@ -287,7 +288,7 @@ title:hover {
           </td>
           <td class="text-muted">{{ row.paid_at or '—' }}</td>
           <td>
-            {% if row.payment_id and not row.is_paid %}
+            {% if row.payment_id %}
             <form method="POST" action="{{ url_for('owner.update_payment', pid=row.payment_id) }}" style="display:inline">
               <input type="hidden" name="status" value="completed"/>
               <button class="btn btn-primary btn-xs">Mark Paid</button>

@@ -21,15 +21,23 @@ from utils.errors import ValidationError
 VALID_ROLES         = {"admin", "owner", "tenant"}
 VALID_PAYMENT_TYPES = {"rent", "deposit", "maintenance", "utility", "other"}
 VALID_PAYMENT_STATS = {"pending", "completed", "overdue", "failed", "waived"}
-VALID_ROOM_STATUSES = {"active", "inactive", "vacated", "pending"}
-VALID_FILE_TYPES    = {"image", "video", "audio", "file"}
-PHONE_RE            = re.compile(r"^\+?[\d\s\-]{6,20}$")
-MONTH_RE            = re.compile(r"^\d{4}-(?:0[1-9]|1[0-2])$")   # YYYY-MM
-MAX_MESSAGE_LEN     = 4000
-MAX_NAME_LEN        = 150
-MAX_DESCRIPTION_LEN = 1000
-MIN_AMOUNT          = Decimal("0.01")
-MAX_AMOUNT          = Decimal("9999999.99")
+VALID_ROOM_STATUSES        = {"active", "inactive", "vacated", "pending"}
+VALID_PAYMENT_TYPES        = {"rent", "deposit", "maintenance", "utility", "other"}
+VALID_PAYMENT_STATS        = {"pending", "completed", "overdue", "failed", "waived"}
+VALID_EXPENSE_TYPES        = {"salary", "repair", "electricity", "wifi", "gas", "groceries", "furniture", "maintenance", "water", "miscellaneous"}
+VALID_EXPENSE_STATUS       = {"pending", "completed", "cancelled"}
+VALID_SALARY_TYPES         = {"monthly", "daily", "task-based"}
+VALID_TASK_PRIORITIES      = {"low", "medium", "high", "urgent"}
+VALID_TASK_STATUS          = {"pending", "working", "completed", "cancelled"}
+VALID_COMPLAINT_CATEGORIES = {"cleaning", "electricity", "water", "internet", "furniture", "appliance", "bathroom", "security", "other"}
+VALID_FILE_TYPES           = {"image", "video", "audio", "file"}
+PHONE_RE                   = re.compile(r"^\+?[\d\s\-]{6,20}$")
+MONTH_RE                   = re.compile(r"^\d{4}-(?:0[1-9]|1[0-2])$")   # YYYY-MM
+MAX_MESSAGE_LEN            = 4000
+MAX_NAME_LEN               = 150
+MAX_DESCRIPTION_LEN        = 1000
+MIN_AMOUNT                 = Decimal("0.01")
+MAX_AMOUNT                 = Decimal("9999999.99")
 
 
 # ── Primitive validators ───────────────────────────────────────────────────────
@@ -205,6 +213,72 @@ def require_payment_status(value, field: str = "status") -> str:
             f"{field} must be one of: {', '.join(sorted(VALID_PAYMENT_STATS))}"
         )
     return s
+
+
+def require_expense_type(value, field: str = "expense_type") -> str:
+    if value is None:
+        raise ValidationError(f"{field} is required")
+    et = str(value).strip().lower()
+    if et not in VALID_EXPENSE_TYPES:
+        raise ValidationError(
+            f"{field} must be one of: {', '.join(sorted(VALID_EXPENSE_TYPES))}"
+        )
+    return et
+
+
+def require_expense_status(value, field: str = "payment_status") -> str:
+    if value is None:
+        raise ValidationError(f"{field} is required")
+    s = str(value).strip().lower()
+    if s not in VALID_EXPENSE_STATUS:
+        raise ValidationError(
+            f"{field} must be one of: {', '.join(sorted(VALID_EXPENSE_STATUS))}"
+        )
+    return s
+
+
+def require_salary_type(value, field: str = "salary_type") -> str:
+    if value is None:
+        return "monthly"
+    s = str(value).strip().lower()
+    if s not in VALID_SALARY_TYPES:
+        raise ValidationError(
+            f"{field} must be one of: {', '.join(sorted(VALID_SALARY_TYPES))}"
+        )
+    return s
+
+
+def require_task_priority(value, field: str = "priority") -> str:
+    if value is None:
+        return "medium"
+    p = str(value).strip().lower()
+    if p not in VALID_TASK_PRIORITIES:
+        raise ValidationError(
+            f"{field} must be one of: {', '.join(sorted(VALID_TASK_PRIORITIES))}"
+        )
+    return p
+
+
+def require_task_status(value, field: str = "status") -> str:
+    if value is None:
+        raise ValidationError(f"{field} is required")
+    s = str(value).strip().lower()
+    if s not in VALID_TASK_STATUS:
+        raise ValidationError(
+            f"{field} must be one of: {', '.join(sorted(VALID_TASK_STATUS))}"
+        )
+    return s
+
+
+def require_issue_category(value, field: str = "issue_category") -> str:
+    if value is None:
+        raise ValidationError(f"{field} is required")
+    c = str(value).strip().lower()
+    if c not in VALID_COMPLAINT_CATEGORIES:
+        raise ValidationError(
+            f"{field} must be one of: {', '.join(sorted(VALID_COMPLAINT_CATEGORIES))}"
+        )
+    return c
 
 
 def require_message_content(value, file_present: bool = False, field: str = "content") -> Optional[str]:

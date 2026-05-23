@@ -2,17 +2,25 @@
 Owner routes — thin layer: validate input → call service → respond.
 No business logic, no direct DB queries (except simple reads in dashboard).
 """
+import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import db, User, Property, PropertyTenant, Payment, Room, RoomTenant, VacateRequest, now_utc
+from models import (db, User, Property, PropertyTenant, Payment, Room, RoomTenant,
+                    VacateRequest, Worker, MaintenanceTask, TenantComplaint,
+                    PropertyExpense, now_utc)
 from routes import role_required
 from services import (generate_monthly_rent, mark_overdue_payments,
                       owner_payment_summary, push_notification, fmt_month,
                       TenantService, PaymentService)
-from static.utils.validators import (validate_create_tenant, validate_create_payment,
-                               optional_date, optional_id, require_amount,
-                               require_payment_type, optional_rent_month,
-                               optional_string, require_payment_status,optional_amount)
+from static.utils.validators import (
+    validate_create_tenant, validate_create_payment,
+    optional_date, optional_id, require_id, require_string,
+    require_phone, require_amount, require_expense_type,
+    require_expense_status, require_salary_type,
+    require_task_priority, require_task_status,
+    require_issue_category, require_payment_type,
+    optional_rent_month, optional_string,
+    require_payment_status, optional_amount)
 from utils.errors import AppError, ValidationError
 
 owner_bp = Blueprint("owner", __name__, url_prefix="/owner")
@@ -676,6 +684,380 @@ def delete_payment(pid):
     except AppError as e:
         flash(str(e), "error")
     return redirect(url_for("owner.payments"))
+
+
+@owner_bp.route("/maintenance")
+@login_required
+@role_required("owner")
+def maintenance():
+    section = request.args.get("section", "overview")
+    search = request.args.get("search", "").strip()
+    property_id = None
+    worker_id = None
+    status_filter = request.args.get("status", "").strip().lower()
+    category_filter = request.args.get("category", "").strip().lower()
+    expense_type = request.args.get("expense_type", "").strip().lower()
+
+    def parse_optional_int(value):
+        try:
+            return optional_id(value, "id")
+        except ValidationError:
+            return None
+
+    try:
+        property_id = parse_optional_int(request.args.get("property_id"))
+        worker_id = parse_optional_int(request.args.get("worker_id"))
+    except ValidationError:
+        property_id = None
+        worker_id = None
+
+    properties = Property.query.filter_by(owner_id=current_user.id, is_deleted=False).order_by(Property.name).all()
+    workers_q = Worker.query.filter_by(owner_id=current_user.id)
+    if search:
+        workers_q = workers_q.filter(
+            db.or_(
+                Worker.full_name.ilike(f"%{search}%"),
+                Worker.role.ilike(f"%{search}%"),
+                Worker.phone_number.ilike(f"%{search}%")
+            )
+        )
+    if property_id:
+        workers_q = workers_q.filter(Worker.assigned_properties.any(id=property_id))
+    if status_filter in ("active", "inactive"):
+        workers_q = workers_q.filter_by(active_status=(status_filter == "active"))
+    worker_page = max(1, int(request.args.get("worker_page", 1)))
+    workers = workers_q.order_by(Worker.active_status.desc(), Worker.full_name).paginate(page=worker_page, per_page=20, error_out=False)
+
+    tasks_q = MaintenanceTask.query.filter_by(owner_id=current_user.id)
+    if search:
+        tasks_q = tasks_q.filter(
+            db.or_(
+                MaintenanceTask.title.ilike(f"%{search}%"),
+                MaintenanceTask.description.ilike(f"%{search}%"),
+                MaintenanceTask.room_number.ilike(f"%{search}%")
+            )
+        )
+    if property_id:
+        tasks_q = tasks_q.filter_by(property_id=property_id)
+    if worker_id:
+        tasks_q = tasks_q.filter_by(assigned_worker_id=worker_id)
+    if status_filter in ("pending", "working", "completed", "cancelled"):
+        tasks_q = tasks_q.filter_by(status=status_filter)
+    task_page = max(1, int(request.args.get("task_page", 1)))
+    tasks = tasks_q.order_by(MaintenanceTask.priority.desc(), MaintenanceTask.created_at.desc()).paginate(page=task_page, per_page=20, error_out=False)
+
+    complaints_q = TenantComplaint.query.filter_by(owner_id=current_user.id)
+    if search:
+        complaints_q = complaints_q.filter(
+            db.or_(
+                TenantComplaint.issue_title.ilike(f"%{search}%"),
+                TenantComplaint.issue_description.ilike(f"%{search}%"),
+                TenantComplaint.room_number.ilike(f"%{search}%")
+            )
+        )
+    if property_id:
+        complaints_q = complaints_q.filter_by(property_id=property_id)
+    if worker_id:
+        complaints_q = complaints_q.filter_by(assigned_worker_id=worker_id)
+    if category_filter:
+        complaints_q = complaints_q.filter_by(issue_category=category_filter)
+    if status_filter in ("pending", "resolved", "cancelled"):
+        complaints_q = complaints_q.filter_by(status=status_filter)
+    complaint_page = max(1, int(request.args.get("complaint_page", 1)))
+    complaints = complaints_q.order_by(TenantComplaint.created_at.desc()).paginate(page=complaint_page, per_page=20, error_out=False)
+
+    expenses_q = PropertyExpense.query.filter_by(owner_id=current_user.id)
+    if search:
+        expenses_q = expenses_q.filter(
+            db.or_(
+                PropertyExpense.paid_to.ilike(f"%{search}%"),
+                PropertyExpense.notes.ilike(f"%{search}%")
+            )
+        )
+    if property_id:
+        expenses_q = expenses_q.filter_by(property_id=property_id)
+    if worker_id:
+        expenses_q = expenses_q.filter_by(worker_id=worker_id)
+    if expense_type:
+        expenses_q = expenses_q.filter_by(expense_type=expense_type)
+    if status_filter in ("pending", "completed", "cancelled"):
+        expenses_q = expenses_q.filter_by(payment_status=status_filter)
+    expense_page = max(1, int(request.args.get("expense_page", 1)))
+    expenses = expenses_q.order_by(PropertyExpense.expense_date.desc()).paginate(page=expense_page, per_page=20, error_out=False)
+
+    active_workers = Worker.query.filter_by(owner_id=current_user.id, active_status=True).count()
+    pending_tasks = MaintenanceTask.query.filter_by(owner_id=current_user.id, status="pending").count()
+    urgent_complaints = TenantComplaint.query.filter_by(owner_id=current_user.id, status="pending").count()
+    expenses_month = float(
+        db.session.query(db.func.coalesce(db.func.sum(PropertyExpense.amount), 0))
+        .filter(PropertyExpense.owner_id == current_user.id,
+                db.func.strftime("%Y-%m", PropertyExpense.expense_date) == fmt_month())
+        .scalar() or 0
+    )
+    today = db.func.date(now_utc())
+    completed_today = MaintenanceTask.query.filter_by(owner_id=current_user.id, status="completed")
+    completed_today = completed_today.filter(db.func.date(MaintenanceTask.completed_at) == db.func.date(now_utc())).count()
+
+    return render_template(
+        "owner/maintenance.html",
+        section=section,
+        properties=properties,
+        current_property_id=property_id,
+        current_worker_id=worker_id,
+        current_status=status_filter,
+        current_category=category_filter,
+        current_expense_type=expense_type,
+        search=search,
+        workers=workers,
+        tasks=tasks,
+        complaints=complaints,
+        expenses=expenses,
+        active_workers=active_workers,
+        pending_tasks=pending_tasks,
+        urgent_complaints=urgent_complaints,
+        monthly_expenses=expenses_month,
+        completed_today=completed_today,
+    )
+
+
+@owner_bp.route("/maintenance/workers/add", methods=["POST"])
+@login_required
+@role_required("owner")
+def add_worker():
+    try:
+        full_name = require_string(request.form.get("full_name"), "full_name", max_len=150)
+        phone_number = require_phone(request.form.get("phone_number"), "phone_number")
+        role = require_string(request.form.get("role"), "role", max_len=80)
+        salary_type = require_salary_type(request.form.get("salary_type"), "salary_type") if request.form.get("salary_type") else "monthly"
+        salary_amount = optional_amount(request.form.get("salary_amount"), "salary_amount")
+        joined_date = optional_date(request.form.get("joined_date"), "joined_date")
+        notes = optional_string(request.form.get("notes"), "notes", max_len=500)
+
+        worker = Worker(
+            owner_id=current_user.id,
+            full_name=full_name,
+            phone_number=phone_number,
+            role=role,
+            salary_type=salary_type,
+            salary_amount=salary_amount,
+            active_status=True,
+            joined_date=joined_date.date() if joined_date else None,
+            notes=notes,
+        )
+
+        property_ids = [optional_id(pid, "assigned_property_ids") for pid in request.form.getlist("assigned_property_ids") if pid]
+        for pid in set(property_ids):
+            prop = Property.query.filter_by(id=pid, owner_id=current_user.id, is_deleted=False).first()
+            if not prop:
+                raise ValidationError("Invalid property selected for worker assignment.")
+            worker.assigned_properties.append(prop)
+
+        db.session.add(worker)
+        db.session.commit()
+        flash("Worker added.", "success")
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Unable to save worker. Please retry.", "error")
+    return redirect(url_for("owner.maintenance", section="workers"))
+
+
+@owner_bp.route("/maintenance/workers/<int:wid>/toggle", methods=["POST"])
+@login_required
+@role_required("owner")
+def toggle_worker_status(wid):
+    worker = Worker.query.filter_by(id=wid, owner_id=current_user.id).first_or_404()
+    worker.active_status = not worker.active_status
+    try:
+        db.session.commit()
+        flash("Worker status updated.", "success")
+    except Exception:
+        db.session.rollback()
+        flash("Could not update worker status.", "error")
+    return redirect(url_for("owner.maintenance", section="workers"))
+
+
+@owner_bp.route("/maintenance/workers/<int:wid>")
+@login_required
+@role_required("owner")
+def worker_dashboard(wid):
+    worker = Worker.query.filter_by(id=wid, owner_id=current_user.id).first_or_404()
+    recent_tasks = MaintenanceTask.query.filter_by(owner_id=current_user.id, assigned_worker_id=worker.id).order_by(MaintenanceTask.created_at.desc()).limit(30).all()
+    recent_complaints = TenantComplaint.query.filter_by(owner_id=current_user.id, assigned_worker_id=worker.id).order_by(TenantComplaint.created_at.desc()).limit(30).all()
+    recent_expenses = PropertyExpense.query.filter_by(owner_id=current_user.id, worker_id=worker.id).order_by(PropertyExpense.expense_date.desc()).limit(30).all()
+
+    pending_tasks = MaintenanceTask.query.filter_by(owner_id=current_user.id, assigned_worker_id=worker.id, status="pending").count()
+    completed_today = MaintenanceTask.query.filter_by(owner_id=current_user.id, assigned_worker_id=worker.id, status="completed")
+    completed_today = completed_today.filter(db.func.date(MaintenanceTask.completed_at) == db.func.date(now_utc())).count()
+    unresolved_complaints = TenantComplaint.query.filter_by(owner_id=current_user.id, assigned_worker_id=worker.id, status="pending").count()
+    monthly_expense = float(
+        db.session.query(db.func.coalesce(db.func.sum(PropertyExpense.amount), 0))
+        .filter(PropertyExpense.owner_id == current_user.id,
+                PropertyExpense.worker_id == worker.id,
+                db.func.strftime("%Y-%m", PropertyExpense.expense_date) == fmt_month())
+        .scalar() or 0
+    )
+
+    return render_template(
+        "owner/worker_dashboard.html",
+        worker=worker,
+        recent_tasks=recent_tasks,
+        recent_complaints=recent_complaints,
+        recent_expenses=recent_expenses,
+        pending_tasks=pending_tasks,
+        completed_today=completed_today,
+        unresolved_complaints=unresolved_complaints,
+        monthly_expense=monthly_expense,
+    )
+
+
+@owner_bp.route("/maintenance/tasks/add", methods=["POST"])
+@login_required
+@role_required("owner")
+def add_maintenance_task():
+    try:
+        title = require_string(request.form.get("title"), "title", max_len=220)
+        description = optional_string(request.form.get("description"), "description", max_len=1000)
+        property_id = require_id(request.form.get("property_id"), "property_id")
+        prop = Property.query.filter_by(id=property_id, owner_id=current_user.id, is_deleted=False).first_or_404()
+        room_number = optional_string(request.form.get("room_number"), "room_number", max_len=40)
+        assigned_worker_id = optional_id(request.form.get("assigned_worker_id"), "assigned_worker_id") if request.form.get("assigned_worker_id") else None
+        if assigned_worker_id:
+            worker = Worker.query.filter_by(id=assigned_worker_id, owner_id=current_user.id).first_or_404()
+        priority = require_task_priority(request.form.get("priority"), "priority")
+        proof_images = optional_string(request.form.get("proof_images"), "proof_images", max_len=1000)
+        proof_images_list = []
+        if proof_images:
+            proof_images_list = [u.strip() for u in proof_images.split(",") if u.strip()]
+
+        task = MaintenanceTask(
+            title=title,
+            description=description,
+            property_id=prop.id,
+            room_number=room_number,
+            assigned_worker_id=assigned_worker_id,
+            priority=priority,
+            status="pending",
+            created_by_owner_id=current_user.id,
+            proof_images=json.dumps(proof_images_list) if proof_images_list else None,
+            owner_id=current_user.id,
+        )
+        db.session.add(task)
+        db.session.commit()
+        flash("Task assigned.", "success")
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Unable to create task.", "error")
+    return redirect(url_for("owner.maintenance", section="tasks"))
+
+
+@owner_bp.route("/maintenance/tasks/<int:tid>/status", methods=["POST"])
+@login_required
+@role_required("owner")
+def update_task_status(tid):
+    task = MaintenanceTask.query.filter_by(id=tid, owner_id=current_user.id).first_or_404()
+    try:
+        status = require_task_status(request.form.get("status"), "status")
+        task.status = status
+        task.completed_at = now_utc() if status == "completed" else None
+        db.session.commit()
+        flash("Task status updated.", "success")
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Unable to update task status.", "error")
+    return redirect(url_for("owner.maintenance", section="tasks"))
+
+
+@owner_bp.route("/maintenance/complaints/add", methods=["POST"])
+@login_required
+@role_required("owner")
+def add_complaint():
+    try:
+        tenant_id = require_id(request.form.get("tenant_id"), "tenant_id")
+        tenant = User.query.filter_by(id=tenant_id, owner_id=current_user.id, role="tenant").first_or_404()
+        property_id = require_id(request.form.get("property_id"), "property_id")
+        Property.query.filter_by(id=property_id, owner_id=current_user.id, is_deleted=False).first_or_404()
+        room_number = optional_string(request.form.get("room_number"), "room_number", max_len=40)
+        issue_title = require_string(request.form.get("issue_title"), "issue_title", max_len=220)
+        issue_description = optional_string(request.form.get("issue_description"), "issue_description", max_len=1000)
+        issue_category = require_issue_category(request.form.get("issue_category"), "issue_category")
+        if issue_category == "other":
+            custom_category = optional_string(request.form.get("issue_category_custom"), "issue_category_custom", max_len=60)
+            if custom_category:
+                issue_category = custom_category
+        assigned_worker_id = optional_id(request.form.get("assigned_worker_id"), "assigned_worker_id") if request.form.get("assigned_worker_id") else None
+        if assigned_worker_id:
+            Worker.query.filter_by(id=assigned_worker_id, owner_id=current_user.id).first_or_404()
+
+        complaint = TenantComplaint(
+            tenant_id=tenant.id,
+            property_id=property_id,
+            room_number=room_number,
+            issue_title=issue_title,
+            issue_description=issue_description,
+            issue_category=issue_category,
+            status="pending",
+            assigned_worker_id=assigned_worker_id,
+            owner_id=current_user.id,
+        )
+        db.session.add(complaint)
+        db.session.commit()
+        flash("Complaint logged.", "success")
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Unable to log complaint.", "error")
+    return redirect(url_for("owner.maintenance", section="complaints"))
+
+
+@owner_bp.route("/maintenance/expenses/add", methods=["POST"])
+@login_required
+@role_required("owner")
+def add_expense():
+    try:
+        property_id = require_id(request.form.get("property_id"), "property_id")
+        Property.query.filter_by(id=property_id, owner_id=current_user.id, is_deleted=False).first_or_404()
+        expense_type = require_expense_type(request.form.get("expense_type"), "expense_type")
+        amount = require_amount(request.form.get("amount"), "amount")
+        payment_status = require_expense_status(request.form.get("payment_status"), "payment_status")
+        paid_to = optional_string(request.form.get("paid_to"), "paid_to", max_len=120)
+        worker_id = optional_id(request.form.get("worker_id"), "worker_id") if request.form.get("worker_id") else None
+        if worker_id:
+            Worker.query.filter_by(id=worker_id, owner_id=current_user.id).first_or_404()
+        notes = optional_string(request.form.get("notes"), "notes", max_len=1000)
+        expense_date = optional_date(request.form.get("expense_date"), "expense_date")
+
+        expense = PropertyExpense(
+            property_id=property_id,
+            expense_type=expense_type,
+            amount=amount,
+            payment_status=payment_status,
+            paid_to=paid_to,
+            worker_id=worker_id,
+            notes=notes,
+            expense_date=expense_date.date(),
+            owner_id=current_user.id,
+        )
+        db.session.add(expense)
+        db.session.commit()
+        flash("Expense recorded.", "success")
+    except ValidationError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    except Exception:
+        db.session.rollback()
+        flash("Unable to record expense.", "error")
+    return redirect(url_for("owner.maintenance", section="expenses"))
 
 
 # ── Notification ──────────────────────────────────────────────────────────────

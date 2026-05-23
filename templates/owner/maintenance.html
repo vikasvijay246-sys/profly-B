@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Maintenance & Workers — PropFlow{% endblock %}
+{% block page_title %}Worker & Maintenance{% endblock %}
+
+{% block content %}
+<style>
+  .maintenance-tag { display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:rgba(59,130,246,.08);color:#1d4ed8;font-size:12px; }
+  .maintenance-pagination { display:flex;flex-wrap:wrap;gap:6px;margin-top:12px; }
+  .maintenance-pagination a { padding:8px 10px;border-radius:10px;border:1px solid var(--border);color:var(--text);text-decoration:none; }
+  .maintenance-pagination a.active { background:var(--c-blue);color:#fff;border-color:var(--c-blue); }
+  .maintenance-badge { display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,.12);color:#047857;font-size:12px; }
+  .checkbox-label { display:inline-flex;align-items:center;gap:6px;font-size:0.95rem;color:var(--text); }
+</style>
+<div class="card" style="margin-bottom:16px;padding:16px;">
+  <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;">
+    <div>
+      <h2 style="margin:0 0 8px;">Worker & Maintenance Center</h2>
+      <p style="margin:0;color:var(--text-muted);font-size:0.95rem;">Manage workers, maintenance tasks, tenant complaints, and expenses in one mobile-first view.</p>
+    </div>
+    <a href="{{ url_for('owner.dashboard') }}" class="btn btn-ghost btn-sm" style="white-space:nowrap;">← Back</a>
+  </div>
+</div>
+
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-body"><div class="stat-value">{{ active_workers }}</div><div class="stat-label">Active workers</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🧰</div><div class="stat-body"><div class="stat-value">{{ pending_tasks }}</div><div class="stat-label">Pending tasks</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🚨</div><div class="stat-body"><div class="stat-value">{{ urgent_complaints }}</div><div class="stat-label">Urgent complaints</div></div></div>
+  <div class="stat-card"><div class="stat-icon">💵</div><div class="stat-body"><div class="stat-value">₹{{ "{:,}".format(monthly_expenses) }}</div><div class="stat-label">This month expenses</div></div></div>
+  <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-body"><div class="stat-value">{{ completed_today }}</div><div class="stat-label">Completed today</div></div></div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('owner.maintenance', section='overview') }}" class="btn btn-sm {% if section == 'overview' %}btn-primary{% else %}btn-ghost{% endif %}">Overview</a>
+      <a href="{{ url_for('owner.maintenance', section='workers') }}" class="btn btn-sm {% if section == 'workers' %}btn-primary{% else %}btn-ghost{% endif %}">Workers</a>
+      <a href="{{ url_for('owner.maintenance', section='tasks') }}" class="btn btn-sm {% if section == 'tasks' %}btn-primary{% else %}btn-ghost{% endif %}">Tasks</a>
+      <a href="{{ url_for('owner.maintenance', section='complaints') }}" class="btn btn-sm {% if section == 'complaints' %}btn-primary{% else %}btn-ghost{% endif %}">Complaints</a>
+      <a href="{{ url_for('owner.maintenance', section='expenses') }}" class="btn btn-sm {% if section == 'expenses' %}btn-primary{% else %}btn-ghost{% endif %}">Expenses</a>
+    </div>
+  </div>
+  <div class="card-body" style="padding:16px;">
+    <form method="GET" class="grid" style="gap:10px;">
+      <input type="hidden" name="section" value="{{ section }}">
+      <div><input type="text" name="search" value="{{ search }}" class="form-input" placeholder="Search workers, tasks or notes"></div>
+      <div><select name="property_id" class="form-input"><option value="">All properties</option>{% for prop in properties %}<option value="{{ prop.id }}" {% if prop.id == current_property_id %}selected{% endif %}>{{ prop.name }}</option>{% endfor %}</select></div>
+      <div><select name="worker_id" class="form-input"><option value="">All workers</option>{% for worker in workers.items if section != 'workers' %}<option value="{{ worker.id }}" {% if worker.id == current_worker_id %}selected{% endif %}>{{ worker.full_name }}</option>{% endfor %}</select></div>
+      {% if section == 'workers' %}
+        <div><select name="status" class="form-input"><option value="">All statuses</option><option value="active" {% if current_status == 'active' %}selected{% endif %}>Active</option><option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactive</option></select></div>
+      {% elif section == 'tasks' %}
+        <div><select name="status" class="form-input"><option value="">All statuses</option><option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option><option value="working" {% if current_status == 'working' %}selected{% endif %}>Working</option><option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Completed</option><option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>Cancelled</option></select></div>
+      {% elif section == 'complaints' %}
+        <div><select name="status" class="form-input"><option value="">All statuses</option><option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option><option value="resolved" {% if current_status == 'resolved' %}selected{% endif %}>Resolved</option><option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>Cancelled</option></select></div>
+        <div><select name="category" class="form-input"><option value="">All categories</option><option value="cleaning" {% if current_category == 'cleaning' %}selected{% endif %}>Cleaning</option><option value="electricity" {% if current_category == 'electricity' %}selected{% endif %}>Electricity</option><option value="water" {% if current_category == 'water' %}selected{% endif %}>Water</option><option value="internet" {% if current_category == 'internet' %}selected{% endif %}>Internet</option><option value="furniture" {% if current_category == 'furniture' %}selected{% endif %}>Furniture</option><option value="appliance" {% if current_category == 'appliance' %}selected{% endif %}>Appliance</option><option value="bathroom" {% if current_category == 'bathroom' %}selected{% endif %}>Bathroom</option><option value="security" {% if current_category == 'security' %}selected{% endif %}>Security</option><option value="other" {% if current_category == 'other' %}selected{% endif %}>Other</option></select></div>
+      {% elif section == 'expenses' %}
+        <div><select name="expense_type" class="form-input"><option value="">All types</option><option value="salary" {% if current_expense_type == 'salary' %}selected{% endif %}>Salary</option><option value="repair" {% if current_expense_type == 'repair' %}selected{% endif %}>Repair</option><option value="electricity" {% if current_expense_type == 'electricity' %}selected{% endif %}>Electricity</option><option value="wifi" {% if current_expense_type == 'wifi' %}selected{% endif %}>WiFi</option><option value="gas" {% if current_expense_type == 'gas' %}selected{% endif %}>Gas</option><option value="groceries" {% if current_expense_type == 'groceries' %}selected{% endif %}>Groceries</option><option value="furniture" {% if current_expense_type == 'furniture' %}selected{% endif %}>Furniture</option><option value="maintenance" {% if current_expense_type == 'maintenance' %}selected{% endif %}>Maintenance</option><option value="water" {% if current_expense_type == 'water' %}selected{% endif %}>Water</option><option value="miscellaneous" {% if current_expense_type == 'miscellaneous' %}selected{% endif %}>Miscellaneous</option></select></div>
+        <div><select name="status" class="form-input"><option value="">All payments</option><option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option><option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Completed</option><option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>Cancelled</option></select></div>
+      {% endif %}
+      <div><button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Filter</button></div>
+    </form>
+  </div>
+</div>
+
+{% if section == 'overview' %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Quick actions</h2></div>
+  <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <a href="{{ url_for('owner.maintenance', section='workers') }}" class="btn btn-outline btn-full">Manage workers</a>
+    <a href="{{ url_for('owner.maintenance', section='tasks') }}" class="btn btn-outline btn-full">Assign task</a>
+    <a href="{{ url_for('owner.maintenance', section='complaints') }}" class="btn btn-outline btn-full">Log complaint</a>
+    <a href="{{ url_for('owner.maintenance', section='expenses') }}" class="btn btn-outline btn-full">Record expense</a>
+  </div>
+</div>
+{% endif %}
+
+{% if section == 'workers' %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Add Worker</h2></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('owner.add_worker') }}" class="grid" style="gap:12px;">
+      <input type="text" name="full_name" class="form-input" placeholder="Worker name" required>
+      <input type="text" name="phone_number" class="form-input" placeholder="Phone or username" required>
+      <input type="text" name="role" class="form-input" placeholder="Role (cleaner, cook, plumber, etc.)" required>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <select name="salary_type" class="form-input" required>
+          <option value="monthly">Monthly</option>
+          <option value="daily">Daily</option>
+          <option value="task-based">Task-based</option>
+        </select>
+        <input type="number" step="0.01" name="salary_amount" class="form-input" placeholder="Salary amount">
+      </div>
+      <input type="date" name="joined_date" class="form-input" placeholder="Joined date">
+      <textarea name="notes" class="form-input" rows="3" placeholder="Notes or instructions"></textarea>
+      {% if properties %}
+      <div style="display:grid;gap:8px;">
+        <div style="font-size:0.95rem;font-weight:600;color:var(--text);">Assign to properties</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
+          {% for prop in properties %}
+          <label class="checkbox-label"><input type="checkbox" name="assigned_property_ids" value="{{ prop.id }}"> {{ prop.name }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary btn-full">Save worker</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Workers</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Role</th><th>Properties</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for worker in workers.items %}
+        <tr>
+          <td><a href="{{ url_for('owner.worker_dashboard', wid=worker.id) }}" style="color:inherit;text-decoration:none;font-weight:600;">{{ worker.full_name }}</a><br><small>{{ worker.phone_number }}</small></td>
+          <td>{{ worker.role }}</td>
+          <td>{% for prop in worker.assigned_properties %}<span class="maintenance-tag">{{ prop.name }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</td>
+          <td>{{ 'Active' if worker.active_status else 'Inactive' }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('owner.toggle_worker_status', wid=worker.id) }}">
+              <button type="submit" class="btn btn-sm {% if worker.active_status %}btn-ghost{% else %}btn-primary{% endif %}">{{ 'Deactivate' if worker.active_status else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No workers found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if workers.pages > 1 %}
+  <div class="maintenance-pagination">{% for p in range(1, workers.pages + 1) %}<a href="{{ url_for('owner.maintenance', section='workers', worker_page=p, search=search, property_id=current_property_id, status=current_status) }}" class="{% if p == workers.page %}active{% endif %}">{{ p }}</a>{% endfor %}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if section == 'tasks' %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Assign Task</h2></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('owner.add_maintenance_task') }}" class="grid" style="gap:12px;">
+      <input type="text" name="title" class="form-input" placeholder="Task title" required>
+      <textarea name="description" class="form-input" rows="3" placeholder="Description"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+        <input type="text" name="room_number" class="form-input" placeholder="Room number">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <select name="assigned_worker_id" class="form-input"><option value="">Unassigned</option>{% for worker in workers.items %}<option value="{{ worker.id }}">{{ worker.full_name }}</option>{% endfor %}</select>
+        <select name="priority" class="form-input" required><option value="medium">Medium priority</option><option value="low">Low priority</option><option value="high">High priority</option><option value="urgent">Urgent</option></select>
+      </div>
+      <input type="text" name="proof_images" class="form-input" placeholder="Proof image URLs (comma-separated)">
+      <button type="submit" class="btn btn-primary btn-full">Create task</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Tasks</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Title</th><th>Property</th><th>Worker</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for task in tasks.items %}
+        <tr>
+          <td>{{ task.title }}<br><small>{{ task.description }}</small></td>
+          <td>{{ task.property.name if task.property else '—' }}</td>
+          <td>{{ task.assigned_worker.full_name if task.assigned_worker else 'Unassigned' }}</td>
+          <td>{{ task.status.capitalize() }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('owner.update_task_status', tid=task.id) }}" style="display:grid;gap:6px;">
+              <select name="status" class="form-input btn-sm" style="width:100%;">
+                <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="working" {% if task.status == 'working' %}selected{% endif %}>Working</option>
+                <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>Completed</option>
+                <option value="cancelled" {% if task.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+              </select>
+              <button type="submit" class="btn btn-sm btn-primary">Update</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No tasks found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if tasks.pages > 1 %}
+  <div class="maintenance-pagination">{% for p in range(1, tasks.pages + 1) %}<a href="{{ url_for('owner.maintenance', section='tasks', task_page=p, search=search, property_id=current_property_id, worker_id=current_worker_id, status=current_status) }}" class="{% if p == tasks.page %}active{% endif %}">{{ p }}</a>{% endfor %}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if section == 'complaints' %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Log Complaint</h2></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('owner.add_complaint') }}" class="grid" style="gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <input type="number" name="tenant_id" class="form-input" placeholder="Tenant ID" required>
+        <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+      </div>
+      <input type="text" name="room_number" class="form-input" placeholder="Room number">
+      <input type="text" name="issue_title" class="form-input" placeholder="Issue title" required>
+      <textarea name="issue_description" class="form-input" rows="3" placeholder="Description"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <select id="issueCategory" name="issue_category" class="form-input" required onchange="toggleCustomCategory()">
+          <option value="cleaning">Cleaning</option>
+          <option value="electricity">Electricity</option>
+          <option value="water">Water</option>
+          <option value="internet">Internet</option>
+          <option value="furniture">Furniture</option>
+          <option value="appliance">Appliance</option>
+          <option value="bathroom">Bathroom</option>
+          <option value="security">Security</option>
+          <option value="other">Other</option>
+        </select>
+        <select name="assigned_worker_id" class="form-input"><option value="">Assign worker</option>{% for worker in workers.items %}<option value="{{ worker.id }}">{{ worker.full_name }}</option>{% endfor %}</select>
+      </div>
+      <input id="customIssueCategory" type="text" name="issue_category_custom" class="form-input" placeholder="Custom category" style="display:none;">
+      <button type="submit" class="btn btn-primary btn-full">Save complaint</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Complaints</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Tenant</th><th>Issue</th><th>Worker</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for complaint in complaints.items %}
+        <tr>
+          <td>{{ complaint.tenant.full_name if complaint.tenant else '—' }}<br><small>{{ complaint.room_number }}</small></td>
+          <td>{{ complaint.issue_title }}<br><small>{{ complaint.issue_category }}</small></td>
+          <td>{{ complaint.assigned_worker.full_name if complaint.assigned_worker else 'Unassigned' }}</td>
+          <td>{{ complaint.status.capitalize() }}</td>
+          <td>{{ complaint.created_at }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No complaints found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if complaints.pages > 1 %}
+  <div class="maintenance-pagination">{% for p in range(1, complaints.pages + 1) %}<a href="{{ url_for('owner.maintenance', section='complaints', complaint_page=p, search=search, property_id=current_property_id, worker_id=current_worker_id, status=current_status, category=current_category) }}" class="{% if p == complaints.page %}active{% endif %}">{{ p }}</a>{% endfor %}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if section == 'expenses' %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Record Expense</h2></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('owner.add_expense') }}" class="grid" style="gap:12px;">
+      <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+      <select name="expense_type" class="form-input" required>
+        <option value="salary">Salary</option><option value="repair">Repair</option><option value="electricity">Electricity</option><option value="wifi">WiFi</option><option value="gas">Gas</option><option value="groceries">Groceries</option><option value="furniture">Furniture</option><option value="maintenance">Maintenance</option><option value="water">Water</option><option value="miscellaneous">Miscellaneous</option>
+      </select>
+      <input type="number" step="0.01" name="amount" class="form-input" placeholder="Amount" required>
+      <select name="payment_status" class="form-input" required><option value="pending">Pending</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
+      <input type="text" name="paid_to" class="form-input" placeholder="Paid to">
+      <select name="worker_id" class="form-input"><option value="">Worker (optional)</option>{% for worker in workers.items %}<option value="{{ worker.id }}">{{ worker.full_name }}</option>{% endfor %}</select>
+      <input type="date" name="expense_date" class="form-input" required>
+      <textarea name="notes" class="form-input" rows="3" placeholder="Notes"></textarea>
+      <button type="submit" class="btn btn-primary btn-full">Save expense</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Expenses</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Type</th><th>Property</th><th>Amount</th><th>Status</th><th>Worker</th></tr></thead>
+      <tbody>
+        {% for expense in expenses.items %}
+        <tr>
+          <td>{{ expense.expense_type }}</td>
+          <td>{{ expense.property.name if expense.property else '—' }}</td>
+          <td>₹{{ "{:.2f}".format(expense.amount) }}</td>
+          <td>{{ expense.payment_status.capitalize() }}</td>
+          <td>{{ expense.worker.full_name if expense.worker else '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No expenses found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if expenses.pages > 1 %}
+  <div class="maintenance-pagination">{% for p in range(1, expenses.pages + 1) %}<a href="{{ url_for('owner.maintenance', section='expenses', expense_page=p, search=search, property_id=current_property_id, worker_id=current_worker_id, expense_type=current_expense_type, status=current_status) }}" class="{% if p == expenses.page %}active{% endif %}">{{ p }}</a>{% endfor %}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleCustomCategory() {
+  const field = document.getElementById('issueCategory');
+  const extra = document.getElementById('customIssueCategory');
+  if (!field || !extra) return;
+  extra.style.display = field.value === 'other' ? 'block' : 'none';
+}
+window.addEventListener('DOMContentLoaded', toggleCustomCategory);
+</script>
+{% endblock %}

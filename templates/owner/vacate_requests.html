@@ -61,7 +61,7 @@
         <div class="vacate-summary-item">
           <strong>{{ req.tenant.full_name }}</strong>
           <div class="detail">Room {{ req.room_number or '—' }} · {{ req.property.name if req.property else 'Property' }} </div>
-          <div class="detail">Vacate on {{ req.vacate_date.strftime('%d-%m-%Y') }}</div>
+        <div class="detail">{{ req.submitted_at.strftime('%b %d, %Y · %H:%M') if req.submitted_at else '' }}</div>
           <div class="detail">Request {{ req.request_id }}</div>
         </div>
         {% endfor %}

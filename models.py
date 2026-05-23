@@ -240,6 +240,8 @@ class Property(db.Model):
     tenants  = db.relationship("PropertyTenant", back_populates="property",   lazy="dynamic")
     payments = db.relationship("Payment",        back_populates="property",   lazy="dynamic")
     rooms    = db.relationship("Room",           back_populates="prop",       lazy="dynamic")
+    workers  = db.relationship("Worker",         secondary="worker_property_assignments",
+                               back_populates="assigned_properties", lazy="dynamic")
 
     def to_dict(self):
         return {
@@ -255,6 +257,220 @@ class Property(db.Model):
     __table_args__ = (
         Index("ix_properties_owner_id",  "owner_id"),
         Index("ix_properties_status",    "status"),
+    )
+
+
+worker_property_assignments = db.Table(
+    "worker_property_assignments",
+    db.Column("worker_id", db.Integer,
+              db.ForeignKey("workers.id", ondelete="CASCADE"),
+              primary_key=True),
+    db.Column("property_id", db.Integer,
+              db.ForeignKey("properties.id", ondelete="CASCADE"),
+              primary_key=True),
+)
+
+
+class Worker(db.Model):
+    __tablename__ = "workers"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    full_name     = db.Column(db.String(150), nullable=False)
+    phone_number  = db.Column(db.String(30), nullable=False)
+    role          = db.Column(db.String(80), nullable=False)
+    salary_type   = db.Column(db.String(20), nullable=False, default="monthly")
+    salary_amount = db.Column(db.Numeric(10, 2), nullable=True)
+    active_status = db.Column(db.Boolean, default=True, nullable=False)
+    joined_date   = db.Column(db.Date, nullable=True)
+    notes         = db.Column(db.Text, nullable=True)
+    owner_id      = db.Column(db.Integer,
+                               db.ForeignKey("users.id", ondelete="CASCADE"),
+                               nullable=False)
+    created_at    = db.Column(db.DateTime, default=now_utc, nullable=False)
+    updated_at    = db.Column(db.DateTime, default=now_utc,
+                               onupdate=now_utc, nullable=False)
+
+    assigned_properties = db.relationship(
+        "Property", secondary=worker_property_assignments,
+        back_populates="workers", lazy="dynamic"
+    )
+    owner = db.relationship("User", foreign_keys=[owner_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "full_name": self.full_name,
+            "phone_number": self.phone_number,
+            "role": self.role,
+            "salary_type": self.salary_type,
+            "salary_amount": float(self.salary_amount) if self.salary_amount else None,
+            "active_status": self.active_status,
+            "joined_date": self.joined_date.isoformat() if self.joined_date else None,
+            "notes": self.notes,
+            "owner_id": self.owner_id,
+            "created_at": to_ist(self.created_at),
+            "updated_at": to_ist(self.updated_at),
+        }
+
+    __table_args__ = (
+        Index("ix_workers_owner_id", "owner_id"),
+        Index("ix_workers_role_owner", "role", "owner_id"),
+    )
+
+
+class MaintenanceTask(db.Model):
+    __tablename__ = "maintenance_tasks"
+
+    id                 = db.Column(db.Integer, primary_key=True)
+    title              = db.Column(db.String(220), nullable=False)
+    description        = db.Column(db.Text, nullable=True)
+    property_id        = db.Column(db.Integer,
+                                   db.ForeignKey("properties.id", ondelete="SET NULL"),
+                                   nullable=False)
+    room_number        = db.Column(db.String(40), nullable=True)
+    assigned_worker_id = db.Column(db.Integer,
+                                   db.ForeignKey("workers.id", ondelete="SET NULL"),
+                                   nullable=True)
+    priority           = db.Column(db.String(20), default="medium", nullable=False)
+    status             = db.Column(db.String(20), default="pending", nullable=False)
+    created_by_owner_id= db.Column(db.Integer,
+                                   db.ForeignKey("users.id", ondelete="CASCADE"),
+                                   nullable=False)
+    completion_notes   = db.Column(db.Text, nullable=True)
+    proof_images       = db.Column(db.Text, nullable=True)
+    created_at         = db.Column(db.DateTime, default=now_utc, nullable=False)
+    updated_at         = db.Column(db.DateTime, default=now_utc,
+                                   onupdate=now_utc, nullable=False)
+    completed_at       = db.Column(db.DateTime, nullable=True)
+    owner_id           = db.Column(db.Integer,
+                                   db.ForeignKey("users.id", ondelete="CASCADE"),
+                                   nullable=False)
+
+    property = db.relationship("Property", foreign_keys=[property_id])
+    assigned_worker = db.relationship("Worker", foreign_keys=[assigned_worker_id])
+    creator = db.relationship("User", foreign_keys=[created_by_owner_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "property_id": self.property_id,
+            "room_number": self.room_number,
+            "assigned_worker_id": self.assigned_worker_id,
+            "priority": self.priority,
+            "status": self.status,
+            "created_by_owner_id": self.created_by_owner_id,
+            "completion_notes": self.completion_notes,
+            "proof_images": self.proof_images,
+            "created_at": to_ist(self.created_at),
+            "updated_at": to_ist(self.updated_at),
+            "completed_at": to_ist(self.completed_at),
+            "owner_id": self.owner_id,
+        }
+
+    __table_args__ = (
+        Index("ix_maintenance_tasks_owner_id", "owner_id"),
+        Index("ix_maintenance_tasks_property_id", "property_id"),
+        Index("ix_maintenance_tasks_status", "status"),
+        Index("ix_maintenance_tasks_priority", "priority"),
+    )
+
+
+class TenantComplaint(db.Model):
+    __tablename__ = "tenant_complaints"
+
+    id               = db.Column(db.Integer, primary_key=True)
+    tenant_id        = db.Column(db.Integer,
+                                 db.ForeignKey("users.id", ondelete="SET NULL"),
+                                 nullable=False)
+    property_id      = db.Column(db.Integer,
+                                 db.ForeignKey("properties.id", ondelete="SET NULL"),
+                                 nullable=False)
+    room_number      = db.Column(db.String(40), nullable=True)
+    issue_title      = db.Column(db.String(220), nullable=False)
+    issue_description= db.Column(db.Text, nullable=True)
+    issue_category   = db.Column(db.String(40), nullable=False)
+    status           = db.Column(db.String(20), default="pending", nullable=False)
+    assigned_worker_id = db.Column(db.Integer,
+                                   db.ForeignKey("workers.id", ondelete="SET NULL"),
+                                   nullable=True)
+    created_at       = db.Column(db.DateTime, default=now_utc, nullable=False)
+    resolved_at      = db.Column(db.DateTime, nullable=True)
+    owner_id         = db.Column(db.Integer,
+                                 db.ForeignKey("users.id", ondelete="CASCADE"),
+                                 nullable=False)
+
+    tenant = db.relationship("User", foreign_keys=[tenant_id])
+    property = db.relationship("Property", foreign_keys=[property_id])
+    assigned_worker = db.relationship("Worker", foreign_keys=[assigned_worker_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "property_id": self.property_id,
+            "room_number": self.room_number,
+            "issue_title": self.issue_title,
+            "issue_description": self.issue_description,
+            "issue_category": self.issue_category,
+            "status": self.status,
+            "assigned_worker_id": self.assigned_worker_id,
+            "created_at": to_ist(self.created_at),
+            "resolved_at": to_ist(self.resolved_at),
+            "owner_id": self.owner_id,
+        }
+
+    __table_args__ = (
+        Index("ix_tenant_complaints_owner_id", "owner_id"),
+        Index("ix_tenant_complaints_status", "status"),
+        Index("ix_tenant_complaints_category", "issue_category"),
+    )
+
+
+class PropertyExpense(db.Model):
+    __tablename__ = "property_expenses"
+
+    id             = db.Column(db.Integer, primary_key=True)
+    property_id    = db.Column(db.Integer,
+                               db.ForeignKey("properties.id", ondelete="SET NULL"),
+                               nullable=False)
+    expense_type   = db.Column(db.String(40), nullable=False)
+    amount         = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_status = db.Column(db.String(20), default="pending", nullable=False)
+    paid_to        = db.Column(db.String(120), nullable=True)
+    worker_id      = db.Column(db.Integer,
+                               db.ForeignKey("workers.id", ondelete="SET NULL"),
+                               nullable=True)
+    notes          = db.Column(db.Text, nullable=True)
+    expense_date   = db.Column(db.Date, nullable=False)
+    created_at     = db.Column(db.DateTime, default=now_utc, nullable=False)
+    owner_id       = db.Column(db.Integer,
+                               db.ForeignKey("users.id", ondelete="CASCADE"),
+                               nullable=False)
+
+    property = db.relationship("Property", foreign_keys=[property_id])
+    worker   = db.relationship("Worker", foreign_keys=[worker_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "property_id": self.property_id,
+            "expense_type": self.expense_type,
+            "amount": float(self.amount),
+            "payment_status": self.payment_status,
+            "paid_to": self.paid_to,
+            "worker_id": self.worker_id,
+            "notes": self.notes,
+            "expense_date": self.expense_date.isoformat() if self.expense_date else None,
+            "created_at": to_ist(self.created_at),
+            "owner_id": self.owner_id,
+        }
+
+    __table_args__ = (
+        Index("ix_property_expenses_owner_id", "owner_id"),
+        Index("ix_property_expenses_property_id", "property_id"),
+        Index("ix_property_expenses_expense_type", "expense_type"),
     )
 
 
