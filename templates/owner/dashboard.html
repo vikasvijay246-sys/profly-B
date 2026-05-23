@@ -162,7 +162,60 @@ title:hover {
   <button onclick="openModal('genRentModal')" class="qa-btn qa-btn-accent"><span>⚡</span>Gen Rent</button>
 </div>
 
+<!-- ----------vacate form neat design-------------------- -->
+
 {% if vacate_pending or vacate_approved %}
+<div class="card" style="margin-bottom:12px; border:none; background:transparent; box-shadow:none;">
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:var(--surface); border-radius:12px; border:1px solid var(--border); transition: 0.2s; cursor:pointer;" onclick="location.href='{{ url_for('owner.vacate_requests') }}'">
+    
+    <div style="display:flex; align-items:center; gap:12px;">
+      <!-- Glowing Icon/DP Style -->
+      <div style="width:40px; height:40px; border-radius:50%; background:var(--c-blue-bg); display:flex; align-items:center; justify-content:center; font-size:20px; position:relative; box-shadow: 0 0 10px rgba(var(--c-blue-rgb), 0.2);">
+        📨
+        {% if vacate_pending %}
+          <!-- Glowing Notification Dot -->
+          <span style="position:absolute; top:0; right:0; width:12px; height:12px; background:#ff4b2b; border:2px solid var(--surface); border-radius:50%; animation: pulse 2s infinite;"></span>
+        {% endif %}
+      </div>
+      
+      <div>
+        <div style="font-weight:600; font-size:14px;">Vacate Notices</div>
+        <div style="font-size:12px; color:var(--text-muted);">
+          {{ vacate_pending|length }} pending request{{ 's' if vacate_pending|length > 1 else '' }}
+        </div>
+      </div>
+    </div>
+
+    <a href="{{ url_for('owner.vacate_requests') }}" style="font-size:13px; font-weight:500; color:var(--c-blue); text-decoration:none;">Manage →</a>
+  </div>
+</div>
+
+<style>
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 75, 43, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(255, 75, 43, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 75, 43, 0); }
+}
+</style>
+{% endif %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- in this like -->
+
+
+<!-- {% if vacate_pending or vacate_approved %}
 <div class="card">
   <div class="card-header">
     <h2>📨 Vacate Notices</h2>
@@ -174,7 +227,7 @@ title:hover {
         <strong>{{ vacate_pending|length }} pending vacate notice{{ 's' if vacate_pending|length > 1 else '' }}</strong>
         <p class="text-muted" style="margin:6px 0 0">These requests need owner review to keep vacancy planning on schedule.</p>
       </div>
-    {% endif %}
+    {% endif %} -->
     {% if vacate_approved %}
       <div class="notice-card" style="padding:16px; background:rgba(16,185,129,.08); border-radius:var(--radius);">
         <strong>{{ vacate_approved|length }} approved vacate{{ 's' if vacate_approved|length > 1 else '' }} coming soon</strong>
