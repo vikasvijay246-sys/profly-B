@@ -7,10 +7,17 @@ const CACHE_NAME = 'propflow-v1';
 const RUNTIME_CACHE = 'propflow-runtime-v1';
 const STATIC_ASSETS = [
   '/',
+  '/offline.html',
   '/static/css/style.css',
+  '/static/css/pwa.css',
   '/static/css/worker.css',
   '/static/js/main.js',
   '/static/js/worker.js',
+  '/static/icons/icon-192x192.png',
+  '/static/icons/icon-512x512.png',
+  '/static/icons/icon-192x192-maskable.png',
+  '/static/icons/icon-512x512-maskable.png',
+  '/static/icons/screenshot-540x720.png',
   '/manifest.json'
 ];
 
@@ -53,6 +60,11 @@ self.addEventListener('fetch', event => {
 
   // Skip browser extensions and cross-origin requests
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
+  // Ignore service worker script itself to avoid self-intercept loops
+  if (url.pathname === '/sw.js') {
     return;
   }
 
@@ -118,7 +130,7 @@ self.addEventListener('fetch', event => {
       })
       .catch(() => {
         return caches.match(request).then(cached => {
-          return cached || new Response(
+          return cached || caches.match('/offline.html') || new Response(
             'You are offline. This page was not cached.',
             { status: 503 }
           );
