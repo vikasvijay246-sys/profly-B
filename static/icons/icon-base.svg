@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#1f2937" rx="90"/>
+  
+  <!-- PropFlow "P" Logo -->
+  <g transform="translate(256, 256)">
+    <!-- Circle background for P -->
+    <circle cx="0" cy="0" r="180" fill="none" stroke="#3b82f6" stroke-width="30"/>
+    
+    <!-- Letter P -->
+    <text x="0" y="60" font-size="180" font-weight="bold" fill="#3b82f6" 
+          text-anchor="middle" font-family="Arial, sans-serif" alignment-baseline="middle">P</text>
+    
+    <!-- Small accent bar -->
+    <rect x="80" y="80" width="80" height="12" fill="#10b981" rx="6"/>
+  </g>
+  
+  <!-- Corner accent -->
+  <circle cx="460" cy="52" r="25" fill="#f59e0b"/>
+</svg>

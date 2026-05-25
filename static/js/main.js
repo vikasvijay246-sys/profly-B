@@ -127,3 +127,201 @@ async function toggleTenantStatus(tenantId) {
   }
 }
 
+/* ──────────────────────────────────────────────────────────
+   ┏━━━ PWA & App-Like Enhancements ━━━┓
+   └────────────────────────────────────┘
+   Smooth navigation, prefetching, native-like interactions
+   ────────────────────────────────────────────────────────── */
+
+/**
+ * Link Prefetching Strategy
+ * Preload links in viewport for instant navigation feel
+ */
+(function() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.target.tagName === 'A') {
+        const href = entry.target.getAttribute('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          prefetchLink(href);
+        }
+      }
+    });
+  }, { rootMargin: '50px' });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('a').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+        observer.observe(link);
+      }
+    });
+  });
+
+  function prefetchLink(href) {
+    if (document.querySelector(`link[rel="prefetch"][href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = href;
+    link.as = 'document';
+    document.head.appendChild(link);
+  }
+})();
+
+/**
+ * Smooth Page Transitions
+ * Add enter animation to page content on load
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const content = document.querySelector('.page-content');
+  if (content) {
+    content.style.animation = 'slideInContent 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+  }
+});
+
+/**
+ * History Back Button Enhancement
+ * Smooth exit animation before navigation
+ */
+window.addEventListener('beforeunload', () => {
+  const content = document.querySelector('.page-content');
+  if (content) {
+    content.style.animation = 'pageExit 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards';
+  }
+});
+
+/**
+ * Touch Feedback & Haptic
+ * Improve tap response on touch devices
+ */
+document.addEventListener('touchstart', (e) => {
+  const target = e.target.closest('button, a, .nav-item, .icon-btn, input, textarea');
+  if (target) {
+    target.style.transform = 'scale(0.97)';
+    // Haptic feedback on capable devices
+    if (navigator.vibrate) {
+      navigator.vibrate(5);
+    }
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  const target = e.target.closest('button, a, .nav-item, .icon-btn, input, textarea');
+  if (target) {
+    target.style.transform = '';
+  }
+}, { passive: true });
+
+/**
+ * Loading State Manager
+ * Show spinner on form submit
+ */
+document.addEventListener('submit', (e) => {
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (btn && !btn.disabled) {
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+    
+    // Restore after 30s timeout (fallback)
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }, 30000);
+  }
+});
+
+/**
+ * Sidebar Smooth Close on Link Click
+ * Provide instant feedback on mobile navigation
+ */
+document.addEventListener('click', (e) => {
+  const navLink = e.target.closest('.nav-item');
+  if (navLink && window.innerWidth <= 768) {
+    closeSidebar();
+  }
+});
+
+/**
+ * Viewport Meta Adjustment
+ * Fix zoom on input focus (iOS)
+ */
+let isIOSVirtualKeyboardOpen = false;
+window.visualViewport?.addEventListener('resize', () => {
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (window.innerHeight < window.visualViewport.height * 0.9) {
+    // Virtual keyboard is open
+    if (!isIOSVirtualKeyboardOpen) {
+      isIOSVirtualKeyboardOpen = true;
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no');
+    }
+  } else {
+    isIOSVirtualKeyboardOpen = false;
+  }
+});
+
+/**
+ * Prevent Overscroll Bounce
+ * Disable iOS pull-to-refresh gesture
+ */
+let lastY = 0;
+document.addEventListener('touchstart', (e) => {
+  lastY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+  const scrollTop = document.querySelector('.page-content')?.scrollTop || window.scrollY;
+  if (scrollTop === 0 && e.touches[0].clientY > lastY) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+/**
+ * Network Status Indicator
+ * Visual feedback for offline state (optional - can be extended)
+ */
+window.addEventListener('offline', () => {
+  console.log('App is offline');
+});
+
+window.addEventListener('online', () => {
+  console.log('App is back online');
+});
+
+/**
+ * Focus Management
+ * Ensure focus management for accessibility and keyboard navigation
+ */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    document.body.classList.add('keyboard-nav-active');
+  }
+});
+
+document.addEventListener('click', () => {
+  document.body.classList.remove('keyboard-nav-active');
+});
+
+/**
+ * Optimize Image Loading
+ * Lazy load images for faster initial paint
+ */
+if ('IntersectionObserver' in window) {
+  const imageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        img.src = img.dataset.src || img.src;
+        img.classList.add('loaded');
+        observer.unobserve(img);
+      }
+    });
+  });
+
+  document.querySelectorAll('img[data-src]').forEach(img => {
+    imageObserver.observe(img);
+  });
+}
+
+console.log('PropFlow PWA & App-Like enhancements loaded');
+

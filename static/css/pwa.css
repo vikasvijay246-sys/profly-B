@@ -1,0 +1,419 @@
+/**
+ * PropFlow PWA & App-Like Enhancements
+ * - Smooth page transitions
+ * - App-like navigation feel
+ * - Mobile touch optimization
+ * - Loading states and animations
+ */
+
+/* ── Root/Global Enhancements ────────────────────────────── */
+:root {
+  --transition-speed: 0.3s;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --safe-area-top: max(0px, env(safe-area-inset-top));
+  --safe-area-bottom: max(0px, env(safe-area-inset-bottom));
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  position: fixed;
+  overflow: hidden;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-app-region: no-drag;
+}
+
+/* ── Main Content Area ───────────────────────────────────── */
+.main-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  padding-bottom: var(--safe-area-bottom);
+  animation: slideInContent var(--transition-speed) var(--transition-easing);
+  will-change: transform;
+}
+
+@keyframes slideInContent {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Sidebar Transitions ─────────────────────────────────── */
+.sidebar {
+  transition: transform var(--transition-speed) var(--transition-easing),
+              box-shadow var(--transition-speed) var(--transition-easing);
+  will-change: transform;
+}
+
+.sidebar-overlay {
+  opacity: 0;
+  transition: opacity var(--transition-speed) var(--transition-easing);
+}
+
+/* ── Navigation Items ────────────────────────────────────── */
+.nav-item {
+  position: relative;
+  transition: all var(--transition-speed) var(--transition-easing);
+  will-change: transform, background-color;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nav-item:active {
+  transform: scale(0.98);
+}
+
+.nav-item.active {
+  animation: activeNavPulse 0.4s var(--transition-easing);
+}
+
+@keyframes activeNavPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* ── Top Bar/Header ──────────────────────────────────────── */
+.topbar {
+  padding-top: var(--safe-area-top);
+  transition: all var(--transition-speed) var(--transition-easing);
+  will-change: background-color;
+}
+
+.icon-btn {
+  transition: all var(--transition-speed) var(--transition-easing);
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.icon-btn:active {
+  transform: scale(0.9);
+}
+
+/* ── Buttons & Interactive Elements ──────────────────────── */
+button, a.btn, [role="button"] {
+  transition: all var(--transition-speed) var(--transition-easing);
+  will-change: transform, box-shadow;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active:not(:disabled), 
+a.btn:active, 
+[role="button"]:active {
+  transform: scale(0.95);
+}
+
+/* ── Loading States ──────────────────────────────────────── */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(31, 41, 55, 0.2);
+  border-top-color: #1f2937;
+  border-radius: 50%;
+  animation: spinFast 0.8s linear infinite;
+}
+
+@keyframes spinFast {
+  to { transform: rotate(360deg); }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(200,200,200,0.3) 25%, rgba(200,200,200,0.5) 50%, rgba(200,200,200,0.3) 75%);
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s infinite;
+}
+
+@keyframes skeletonLoading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Form Inputs - Mobile Optimized ──────────────────────── */
+input, textarea, select {
+  font-size: 16px;
+  transition: all var(--transition-speed) var(--transition-easing);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 8px;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  transform: scale(1.01);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Increase touch target for mobile */
+@media (max-width: 768px) {
+  button, a.btn, input, textarea, select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .icon-btn {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ── Modal/Dialog Transitions ────────────────────────────── */
+.modal-overlay {
+  animation: fadeInOverlay var(--transition-speed) var(--transition-easing);
+}
+
+@keyframes fadeInOverlay {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+.modal-content {
+  animation: slideUpModal var(--transition-speed) var(--transition-easing);
+}
+
+@keyframes slideUpModal {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Toast Notifications ─────────────────────────────────── */
+.rt-toast {
+  animation: slideInToast var(--transition-speed) var(--transition-easing);
+  transition: all var(--transition-speed) var(--transition-easing);
+}
+
+@keyframes slideInToast {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Flash Messages ──────────────────────────────────────── */
+.flash {
+  animation: slideDownFlash 0.3s var(--transition-easing);
+  transition: all 0.3s var(--transition-easing);
+}
+
+@keyframes slideDownFlash {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Smooth Page Transitions ─────────────────────────────── */
+.page-transition-enter {
+  animation: pageEnter 0.3s var(--transition-easing) forwards;
+}
+
+.page-transition-exit {
+  animation: pageExit 0.2s var(--transition-easing) forwards;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageExit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ── Scroll Optimization ─────────────────────────────────── */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Status Bar Safe Area Padding ────────────────────────── */
+@supports (padding: max(0px)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ── No Scroll Bounce on iOS ─────────────────────────────── */
+html, body {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── Prevent Default Pull-to-Refresh ─────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── Subtle Shadows for Depth ────────────────────────────── */
+.topbar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow var(--transition-speed) var(--transition-easing);
+}
+
+.sidebar {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Tap Feedback ────────────────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  button, a.btn, .nav-item, .icon-btn {
+    -webkit-tap-highlight-color: transparent;
+    background-image: radial-gradient(circle, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 70%);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 0 0;
+  }
+  
+  button:active, a.btn:active, .nav-item:active, .icon-btn:active {
+    background-size: 300% 300%;
+  }
+}
+
+/* ── Prevent Zoom on Double Tap ──────────────────────────── */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+/* ── Dark Mode Transitions ───────────────────────────────── */
+[data-theme] {
+  transition: background-color 0.3s var(--transition-easing),
+              color 0.3s var(--transition-easing),
+              border-color 0.3s var(--transition-easing);
+}
+
+/* ── Responsive Touch Sizes ──────────────────────────────── */
+@media (max-width: 480px) {
+  .nav-item {
+    padding: 12px 16px;
+    min-height: 48px;
+  }
+  
+  .topbar {
+    min-height: 56px;
+  }
+  
+  button {
+    padding: 12px 16px;
+  }
+}
+
+/* ── Hardware Acceleration ───────────────────────────────── */
+.page-content, .sidebar, .main-wrap {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-perspective: 1000;
+  perspective: 1000;
+}
+
+/* ── Disable User Drag Selection (App-like) ──────────────── */
+.sidebar-nav, .topbar, button, a {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── Safe area for notch devices ─────────────────────────── */
+@media (orientation: landscape) {
+  .topbar {
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+}
+
+/* ── Improved Scrollbar (Desktop) ────────────────────────── */
+.page-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.page-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.page-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.page-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .page-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .page-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
