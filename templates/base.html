@@ -2,9 +2,19 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"/>
+  <meta name="theme-color" content="#1f2937"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="PropFlow"/>
+  <meta name="description" content="Property & Tenant Management System"/>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}"/>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='icons/icon-192x192.png') }}"/>
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192x192.png') }}"/>
   <title>{% block title %}PropFlow{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pwa.css') }}"/>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -110,6 +120,35 @@
 <!-- SocketIO -->
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        console.log('SW registered:', reg);
+        // Check for updates
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('App update available');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+
+// Prevent iOS zoom on input focus
+document.addEventListener('touchmove', e => {
+  if (e.target.tagName.match(/^(INPUT|TEXTAREA)$/i)) return;
+  if (e.scale !== 1) e.preventDefault();
+}, { passive: false });
+</script>
+
 <script>
 // ── SocketIO init ──────────────────────────────────────
 const socket = io({ transports: ['websocket', 'polling'] });

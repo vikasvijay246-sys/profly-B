@@ -63,6 +63,10 @@ def create_app(config_class=Config):
     for bp in [auth_bp, admin_bp, owner_bp, tenant_bp, chat_bp, rooms_bp, worker_bp]:
         app.register_blueprint(bp)
 
+    @app.route('/sw.js')
+    def service_worker():
+        return app.send_static_file('js/sw.js')
+
     # ── Global error handlers ──────────────────────────────────────────────────
     @app.errorhandler(AppError)
     def handle_app_error(err: AppError):

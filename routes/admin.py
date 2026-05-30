@@ -125,14 +125,11 @@ def delete_user(uid):
         db.session.delete(user)
         db.session.commit()
         flash("User deleted.", "success")
+        return redirect(url_for("admin.users"))
     except Exception as e:
         db.session.rollback()
-        flash(f"Error deleting user: {str(e)}", "error")    
+        flash(f"Error deleting user: {str(e)}", "error")
         return redirect(url_for("admin.users"))
-    db.session.delete(user)
-    db.session.commit()
-    flash("User deleted.", "success")
-    return redirect(url_for("admin.users"))
 
 
 # ── Payment history per tenant ────────────────────────────────────────────────
