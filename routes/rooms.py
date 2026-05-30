@@ -1,6 +1,7 @@
 """Rooms routes — delegate all logic to RoomService."""
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from sqlalchemy import select
 from models import User, Property, Room, RoomTenant
 from routes import role_required
 from services.room import RoomService
@@ -39,8 +40,7 @@ def index():
                   if current_user.role == "admin" else
                   Property.query.filter_by(owner_id=current_user.id,
                                            is_deleted=False).all())
-    active_tenant_ids = (RoomTenant.query.with_entities(RoomTenant.tenant_id)
-                         .filter_by(is_active=True).subquery())
+    active_tenant_ids = select(RoomTenant.tenant_id).filter_by(is_active=True)
     tenants = (User.query.filter_by(role="tenant", is_active=True)
                .filter(~User.id.in_(active_tenant_ids)).all()
                if current_user.role == "admin" else

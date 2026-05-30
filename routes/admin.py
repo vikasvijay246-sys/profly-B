@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from sqlalchemy import select, func
 from models import db, User, Property, PropertyTenant, Payment, Notification, Room, RoomTenant, now_utc
 from routes import role_required
 from services import (generate_monthly_rent, mark_overdue_payments,
@@ -28,9 +29,14 @@ def dashboard():
         ).filter_by(status="completed").scalar() or 0),
         "pending_payments": Payment.query.filter_by(status="pending").count(),
         "overdue_payments": Payment.query.filter_by(status="overdue").count(),
-        "occupied_rooms":   sum(1 for r in Room.query.filter_by(is_active=True).all()
-                                if hasattr(r, "get_occupancy") and (r.get_occupancy() or 0) > 0),
-                                # if r.get_occupancy() > 0),
+        "occupied_rooms": db.session.query(
+            func.count(func.distinct(Room.id))
+        ).select_from(Room).join(
+            RoomTenant, RoomTenant.room_id == Room.id
+        ).filter(
+            Room.is_active == True,
+            RoomTenant.is_active == True
+        ).scalar() or 0,
     }
     recent_payments = Payment.query.order_by(Payment.created_at.desc()).limit(10).all()
     recent_users    = User.query.order_by(User.created_at.desc()).limit(8).all()

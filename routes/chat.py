@@ -26,9 +26,11 @@ from services.message import (
 )
 from static.utils.validators import require_id
 from utils.errors import AppError, PermissionError_, api_error, api_ok, handle_unexpected
+from utils.logger import get_logger
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/chat")
 _msg_svc = MessageService()
+log = get_logger(__name__)
 
 
 def _rooms_for_chat(user: User) -> list:
@@ -226,7 +228,7 @@ def send():
             room = _room_key(current_user.id, receiver_id)
             socketio.emit("new_message", msg_dict, room=f"chat_{room}")
         except Exception as e:
-            print("SocketIO emit failed:", e)
+            log.exception("SocketIO emit failed")
 
         return api_ok(msg_dict, status=201)
 
@@ -265,7 +267,7 @@ def send_room(rid):
             key = rgrp_room_key(rid)
             socketio.emit("new_message", msg_dict, room=f"chat_{key}")
         except Exception as e:
-            print("SocketIO room emit failed:", e)
+            log.exception("SocketIO room emit failed")
 
         return api_ok(msg_dict, status=201)
     except AppError as e:

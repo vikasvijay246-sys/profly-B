@@ -609,6 +609,8 @@ class PropertyTenant(db.Model):
     __table_args__ = (
         Index("ix_pt_tenant_id",   "tenant_id"),
         Index("ix_pt_property_id", "property_id"),
+        Index("ix_pt_status",      "status"),
+        Index("ix_pt_tenant_status", "tenant_id", "status"),  # for deactivate query
     )
 
 

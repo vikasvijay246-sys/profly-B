@@ -47,7 +47,7 @@ def create_app(config_class=Config):
     @lm.user_loader
     def load_user(uid):
         try:
-            return User.query.get(int(uid))
+            return db.session.get(User, int(uid))
         except Exception:
             return None   # never crash the session loader
 
@@ -299,12 +299,7 @@ def seed(app):
             "rooms": Room.query.count(),
             "payments": Payment.query.count(),
         })
-        print("\n" + "="*50)
-        print("  DEMO ACCOUNTS")
-        print("  admin   / admin123")
-        print("  owner1  / owner123")
-        print("  tenant1 / tenant123")
-        print("="*50 + "\n")
+        log.info("Demo accounts: admin/admin123, owner1/owner123, tenant1/tenant123")
 
 
 if __name__ == "__main__":

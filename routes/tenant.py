@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from sqlalchemy import func as sqlfunc
 from models import db, Payment, PropertyTenant, Notification, RoomTenant, Message, VacateRequest, now_utc
 from routes import role_required
 from services import tenant_payment_history, fmt_month, TenantService, push_notification
@@ -21,11 +22,18 @@ def dashboard():
                        .filter_by(tenant_id=current_user.id, is_active=True)
                        .first())
 
+    # Aggregate payment counts in one query instead of 4 separate COUNT queries
+    payment_stats = db.session.query(
+        Payment.status,
+        sqlfunc.count(Payment.id).label('cnt')
+    ).filter_by(tenant_id=current_user.id).group_by(Payment.status).all()
+    
+    stats_dict = {s[0]: s[1] for s in payment_stats}
     stats = {
         "active_leases":    len(tenancies),
-        "pending_payments": Payment.query.filter_by(tenant_id=current_user.id, status="pending").count(),
-        "overdue_payments": Payment.query.filter_by(tenant_id=current_user.id, status="overdue").count(),
-        "paid_payments":    Payment.query.filter_by(tenant_id=current_user.id, status="completed").count(),
+        "pending_payments": stats_dict.get('pending', 0),
+        "overdue_payments": stats_dict.get('overdue', 0),
+        "paid_payments":    stats_dict.get('completed', 0),
         "unread_notifs":    Notification.query.filter_by(user_id=current_user.id, is_read=False).count(),
     }
 

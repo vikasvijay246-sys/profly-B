@@ -251,16 +251,23 @@ class TenantService(BaseService):
             active_pts = (PropertyTenant.query
                           .filter_by(tenant_id=tenant_id, status="active")
                           .all())
+            
+            # Batch: Get remaining active tenants per property in one query
+            from sqlalchemy import func as sqlfunc
+            remaining_per_property = db.session.query(
+                PropertyTenant.property_id,
+                sqlfunc.count(PropertyTenant.id).label('cnt')
+            ).filter(
+                PropertyTenant.status == "active",
+                PropertyTenant.tenant_id != tenant_id
+            ).group_by(PropertyTenant.property_id).all()
+            remaining_dict = {r[0]: r[1] for r in remaining_per_property}
+            
             for pt in active_pts:
                 pt.status = "vacated"
                 # Update property status if it has no remaining active tenants
-                if pt.property_id:
-                    remaining = PropertyTenant.query.filter(
-                        PropertyTenant.property_id == pt.property_id,
-                        PropertyTenant.tenant_id   != tenant_id,
-                        PropertyTenant.status      == "active",
-                    ).count()
-                    if remaining == 0 and pt.property:
+                if pt.property_id and remaining_dict.get(pt.property_id, 0) == 0:
+                    if pt.property:
                         pt.property.status = "available"
 
         self.log.info(

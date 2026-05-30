@@ -13,8 +13,13 @@
 <div class="stats-grid">
   <div class="stat-card">
     <div class="stat-icon" style="background:var(--c-blue-bg);color:var(--c-blue)">🏠</div>
-    <div class="stat-body"><div class="stat-value">    <span>👥 {{ room_assignment.room.get_occupancy() }}/{{ room_assignment.room.max_capacity }} occupants</span>
-</div><div class="stat-label">My Roomsts</div></div>
+    <div class="stat-body"><div class="stat-value">
+{% if room_assignment %}
+    <span>👥 {{ room_assignment.room.get_occupancy() }}/{{ room_assignment.room.max_capacity }} occupants</span>
+{% else %}
+    <span>—</span>
+{% endif %}
+</div><div class="stat-label">My Roommates</div></div>
   </div>
   <div class="stat-card">
     <div class="stat-icon" style="background:var(--c-yellow-bg);color:var(--c-yellow)">⏳</div>
