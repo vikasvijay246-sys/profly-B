@@ -1,17 +1,4 @@
-/* ── Modal helpers ────────────────────────────────────── */
-function openModal(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.remove('hidden');
-  // Trap focus on first input for accessibility
-  const first = el.querySelector('input:not([type=hidden]), select, textarea');
-  if (first) setTimeout(() => first.focus(), 80);
-}
-
-function closeModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.add('hidden');
-}
+function openModal(e){const l=document.getElementById(e);if(!l)return;l.classList.remove('hidden');setTimeout(()=>{const e=l.querySelector('input:not([type=hidden]), select, textarea');e&&e.focus()},80)}function closeModal(e){const l=document.getElementById(e);l&&l.classList.add('hidden')}
 
 // Close on backdrop click
 document.addEventListener('click', function(e) {
@@ -31,13 +18,33 @@ document.addEventListener('keydown', function(e) {
 
 /* ── Sidebar (mobile) ─────────────────────────────────── */
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebarOverlay').classList.toggle('open');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar?.classList.toggle('open');
+  overlay?.classList.toggle('open');
 }
 function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('open');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar?.classList.remove('open');
+  overlay?.classList.remove('open');
 }
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    closeSidebar();
+  }
+});
+
+window.addEventListener('popstate', closeSidebar);
+window.addEventListener('hashchange', closeSidebar);
+
+document.addEventListener('click', function(event) {
+  const overlay = document.getElementById('sidebarOverlay');
+  if (overlay && event.target === overlay) {
+    closeSidebar();
+  }
+});
 
 /* ── Dark mode ────────────────────────────────────────── */
 function toggleDark() {
@@ -68,6 +75,15 @@ document.addEventListener('DOMContentLoaded', function() {
       setTimeout(() => el.remove(), 400);
     }, 5000);
   });
+});
+
+// Lightweight image lazy-loading fallback: mark images as 'lazy' unless explicitly set
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    document.querySelectorAll('img').forEach(img => {
+      if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+    });
+  } catch (e) { /* no-op */ }
 });
 
 /* ── Join user-specific SocketIO room ─────────────────── */

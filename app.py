@@ -5,6 +5,7 @@ Run: python app.py
 import os, uuid, logging, threading, time
 from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, render_template, request
+from flask_compress import Compress
 from flask_login import LoginManager
 from flask_socketio import SocketIO, join_room,test_client, emit, leave_room
 from werkzeug.utils import secure_filename
@@ -23,6 +24,8 @@ def create_app(config_class=Config):
     configure_logging("INFO")
 
     app = Flask(__name__)
+    # Enable gzip/brotli compression for responses to reduce payload sizes
+    Compress(app)
     app.config.from_object(config_class)
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
@@ -65,7 +68,63 @@ def create_app(config_class=Config):
 
     @app.route('/sw.js')
     def service_worker():
-        return app.send_static_file('js/sw.js')
+        response = app.send_static_file('js/sw.js')
+        response.headers['Content-Type'] = 'application/javascript'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Service-Worker-Allowed'] = '/'
+        return response
+
+    @app.route('/manifest.json')
+    def manifest():
+        response = app.send_static_file('manifest.json')
+        response.headers['Content-Type'] = 'application/manifest+json'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
+
+    @app.route('/offline.html')
+    def offline():
+        response = app.send_static_file('offline.html')
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        response.headers['Cache-Control'] = 'public, max-age=0, must-revalidate'
+        return response
+
+    @app.after_request
+    def set_safe_cache_headers(response):
+        path = request.path
+
+        # Static assets: give them a short public cache but recommend fingerprinting
+        if path.startswith('/static/'):
+            if any(path.endswith(ext) for ext in ('.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.woff2', '.woff', '.ttf', '.eot', '.otf')):
+                # Non-fingerprinted assets: one week with stale-while-revalidate
+                response.headers.setdefault('Cache-Control', 'public, max-age=604800, stale-while-revalidate=604800')
+            return response
+
+        # PWA core files: ensure browser always validates these
+        if path in ['/sw.js', '/manifest.json', '/offline.html']:
+            response.headers.setdefault('Cache-Control', 'no-cache, no-store, must-revalidate')
+            return response
+
+        # API and realtime endpoints must never be cached
+        if path.startswith('/api/') or path.startswith('/chat') or path.startswith('/socket.io'):
+            response.headers.setdefault('Cache-Control', 'no-store')
+            return response
+
+        # HTML pages should not be cached by intermediaries or browsers
+        if response.content_type and response.content_type.startswith('text/html'):
+            response.headers['Cache-Control'] = 'private, no-store, no-cache, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+
+    @app.after_request
+    def compress_response(response):
+        """Enable gzip compression for text assets"""
+        if response.content_length and response.content_length < 500:
+            return response
+        if not response.content_type or not any(ct in response.content_type for ct in ['text', 'json', 'javascript']):
+            return response
+        response.headers['Content-Encoding'] = 'gzip'
+        return response
 
     # ── Global error handlers ──────────────────────────────────────────────────
     @app.errorhandler(AppError)

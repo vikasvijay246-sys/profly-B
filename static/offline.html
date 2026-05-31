@@ -1,62 +1,84 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Offline - PropFlow</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
-  <link rel="stylesheet" href="/static/css/pwa.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2937">
+  <title>Offline — PropFlow</title>
   <style>
-    html, body {
-      min-height: 100%;
-      margin: 0;
-      background: #0f172a;
+    :root {
+      color-scheme: dark;
       color: #e2e8f0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
-    .offline-shell {
-      max-width: 420px;
-      width: 100%;
-      margin: 24px;
-      padding: 28px;
-      border-radius: 24px;
-      background: rgba(15, 23, 42, 0.96);
-      border: 1px solid rgba(148, 163, 184, 0.14);
-      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.35);
+    * {
+      box-sizing: border-box;
     }
-    .offline-shell h1 {
-      margin: 0 0 12px;
-      font-size: 2rem;
-      letter-spacing: -0.03em;
+    html, body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      background: radial-gradient(circle at top, rgba(59, 130, 246, 0.15), transparent 38%),
+                  linear-gradient(180deg, #0f172a 0%, #020617 100%);
     }
-    .offline-shell p {
-      margin: 0 0 22px;
-      line-height: 1.65;
+    .card {
+      width: min(100%, 520px);
+      padding: 2rem;
+      border-radius: 28px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 32px 90px rgba(0, 0, 0, 0.25);
+    }
+    h1 {
+      margin: 0 0 1rem;
+      font-size: clamp(2rem, 4vw, 2.6rem);
+      line-height: 1.05;
+    }
+    p {
+      margin: 0 0 1.75rem;
       color: #cbd5e1;
+      line-height: 1.75;
+      font-size: 1rem;
     }
-    .offline-shell a {
-      display: inline-block;
-      padding: 14px 22px;
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+    .actions a {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0.95rem 1rem;
       border-radius: 999px;
-      background: #3b82f6;
-      color: #ffffff;
       text-decoration: none;
       font-weight: 600;
-      transition: transform 0.2s ease;
+      transition: transform 0.18s ease, background-color 0.18s ease;
     }
-    .offline-shell a:hover {
+    .actions a.primary {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+    .actions a.secondary {
+      background: rgba(148, 163, 184, 0.14);
+      color: #e2e8f0;
+    }
+    .actions a:hover {
       transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
-  <div class="offline-shell">
+  <div class="card">
     <h1>You're offline</h1>
-    <p>PropFlow can still display cached screens. Reconnect to continue normal app activity.</p>
-    <a href="/">Return to Home</a>
+    <p>PropFlow cannot load this page while your device is offline. Your session is protected and no private data is cached here.</p>
+    <div class="actions">
+      <a class="primary" href="/">Home</a>
+      <a class="secondary" href="/login">Login</a>
+    </div>
   </div>
 </body>
 </html>

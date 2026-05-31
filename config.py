@@ -7,6 +7,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config:
+    
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-CHANGE-IN-PRODUCTION")
 
     _db_url = os.environ.get(
