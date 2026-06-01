@@ -25,7 +25,7 @@ def create_app(config_class=Config):
 
     app = Flask(__name__)
     # Enable gzip/brotli compression for responses to reduce payload sizes
-    Compress(app)
+    # Compress(app)
     app.config.from_object(config_class)
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
@@ -116,17 +116,26 @@ def create_app(config_class=Config):
             response.headers['Expires'] = '0'
         return response
 
-    @app.after_request
-    def compress_response(response):
-        """Enable gzip compression for text assets"""
-        if response.content_length and response.content_length < 500:
-            return response
-        if not response.content_type or not any(ct in response.content_type for ct in ['text', 'json', 'javascript']):
-            return response
-        response.headers['Content-Encoding'] = 'gzip'
-        return response
+    # @app.after_request
+    # def compress_response(response):
+    #     """Enable gzip compression for text assets"""
+    #     if response.content_length and response.content_length < 500:
+    #         return response
+    #     if not response.content_type or not any(ct in response.content_type for ct in ['text', 'json', 'javascript']):
+    #         return response
+    #     response.headers['Content-Encoding'] = 'gzip'
+    #     return response
 
     # ── Global error handlers ──────────────────────────────────────────────────
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        log.exception(f"Unhandled exception: {e}")
+        if app.config["DEBUG"]:
+            raise e  # in debug mode, let it crash for easier debugging
+        return jsonify({"ok": False, "code": "INTERNAL_ERROR",
+                        "error": "An unexpected error occurred."}), 500
+        
+    #  -----------------------------------------------   
     @app.errorhandler(AppError)
     def handle_app_error(err: AppError):
         err.log()
@@ -208,10 +217,18 @@ def _start_tenant_trash_cleanup(app):
 
 # ── SocketIO event: join user's personal room ──────────────────────────────────
 @socketio.on("join_user_room")
-def handle_join_user_room():
+def handle_join_user_room(data=None):
     from flask_login import current_user
     if current_user.is_authenticated:
-        join_room(f"user_{current_user.id}")
+        try:
+            # Join the user's personal room. Allow optional payload to join an extra room.
+            join_room(f"user_{current_user.id}")
+            if data and isinstance(data, dict):
+                rid = data.get('receiver_id') or data.get('room')
+                if rid:
+                    join_room(f"user_{rid}")
+        except ValueError as ve:
+            log.info("join_user_room skipped: sid not connected", extra={"error": str(ve)})
 
 
 # ── Seed data ──────────────────────────────────────────────────────────────────

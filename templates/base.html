@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <meta name="theme-color" content="#1f2937"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -81,7 +81,7 @@
         <div class="user-phone">{{ current_user.phone }}</div>
       </div>
     </div>
-    <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout">⏻</a>
+    <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout" rel="no-prefetch" data-no-prefetch="1">⏻</a>
   </div>
 </aside>
 {% endif %}
@@ -131,11 +131,7 @@
 <script src="{{ url_for('static', filename='js/pwa-register.js') }}" defer></script>
 
 <script>
-// Prevent iOS zoom on input focus
-document.addEventListener('touchmove', e => {
-  if (e.target.tagName.match(/^(INPUT|TEXTAREA)$/i)) return;
-  if (e.scale !== 1) e.preventDefault();
-}, { passive: false });
+// iOS and mobile accessibility should preserve pinch zoom for large text users.
 </script>
 
 <script defer>

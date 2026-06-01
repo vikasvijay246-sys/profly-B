@@ -345,77 +345,84 @@ function renderMsg(m, isRoom) {
   return wrap;
 }
 
-if (RECEIVER_ID && !CHAT_BLOCKED) {
-  socket.emit('join_chat', { other_id: RECEIVER_ID });
-  socket.on('reconnect', () => socket.emit('join_chat', { other_id: RECEIVER_ID }));
-}
+function initChatSocket() {
+  const socket = window.socket;
+  if (!socket) return;
 
-if (ROOM_ID && !CHAT_BLOCKED) {
-  socket.emit('join_room_chat', { room_id: ROOM_ID });
-  socket.on('reconnect', () => socket.emit('join_room_chat', { room_id: ROOM_ID }));
-}
-
-socket.on('new_message', (m) => {
-  if (ROOM_KEY_PREFIX) {
-    if (!m.room_id || m.room_id !== ROOM_KEY_PREFIX) return;
-  } else if (RECEIVER_ID) {
-    const dm = `dm_${Math.min(CURRENT_ID, RECEIVER_ID)}_${Math.max(CURRENT_ID, RECEIVER_ID)}`;
-    if (m.room_id !== dm) return;
-  } else {
-    return;
+  if (RECEIVER_ID && !CHAT_BLOCKED) {
+    socket.emit('join_chat', { other_id: RECEIVER_ID });
+    socket.on('reconnect', () => socket.emit('join_chat', { other_id: RECEIVER_ID }));
   }
-  if (document.querySelector(`[data-mid="${m.id}"]`)) return;
-  const area = document.getElementById('msgArea');
-  const end  = document.getElementById('msgEnd');
-  if (!area) return;
-  const node = renderMsg(m, !!ROOM_ID);
-  if (node) {
-    if (end) area.insertBefore(node, end); else area.appendChild(node);
-    lastTs = Math.max(lastTs, m.created_ts || 0);
-    scrollBottom(true);
-    if (RECEIVER_ID && document.visibilityState === 'visible' && m.room_id && m.room_id.startsWith('dm_')) {
-      socket.emit('mark_read', { room_id: m.room_id });
+
+  if (ROOM_ID && !CHAT_BLOCKED) {
+    socket.emit('join_room_chat', { room_id: ROOM_ID });
+    socket.on('reconnect', () => socket.emit('join_room_chat', { room_id: ROOM_ID }));
+  }
+
+  socket.on('new_message', (m) => {
+    if (ROOM_KEY_PREFIX) {
+      if (!m.room_id || m.room_id !== ROOM_KEY_PREFIX) return;
+    } else if (RECEIVER_ID) {
+      const dm = `dm_${Math.min(CURRENT_ID, RECEIVER_ID)}_${Math.max(CURRENT_ID, RECEIVER_ID)}`;
+      if (m.room_id !== dm) return;
+    } else {
+      return;
     }
-  }
-});
-
-socket.on('message_deleted', (d) => {
-  const el = document.querySelector(`[data-mid="${d.id}"]`);
-  if (el) {
-    el.querySelector('.msg-bubble').innerHTML =
-      '<div class="msg-text" style="opacity:.5;font-style:italic">Message deleted</div>';
-  }
-});
-
-socket.on('message_edited', (m) => {
-  const el = document.querySelector(`[data-mid="${m.id}"] .msg-text`);
-  if (el) el.textContent = m.content;
-});
-
-socket.on('user_online', (d) => {
-  if (RECEIVER_ID && d.user_id === RECEIVER_ID) {
-    const sl = document.getElementById('statusLine');
-    if (sl) sl.innerHTML = '<span class="online-badge">Online</span>';
-  }
-});
-
-socket.on('read_receipt', () => {
-  document.querySelectorAll('.msg-mine .msg-ticks').forEach(el => {
-    el.className = 'msg-ticks ticks-read';
-    el.textContent = '✓✓';
+    if (document.querySelector(`[data-mid="${m.id}"]`)) return;
+    const area = document.getElementById('msgArea');
+    const end  = document.getElementById('msgEnd');
+    if (!area) return;
+    const node = renderMsg(m, !!ROOM_ID);
+    if (node) {
+      if (end) area.insertBefore(node, end); else area.appendChild(node);
+      lastTs = Math.max(lastTs, m.created_ts || 0);
+      scrollBottom(true);
+      if (RECEIVER_ID && document.visibilityState === 'visible' && m.room_id && m.room_id.startsWith('dm_')) {
+        socket.emit('mark_read', { room_id: m.room_id });
+      }
+    }
   });
-});
 
-socket.on('typing', (d) => {
-  if (!RECEIVER_ID || d.user_id !== RECEIVER_ID) return;
-  const bar  = document.getElementById('typingBar');
-  const txt  = document.getElementById('typingText');
-  if (!bar || !txt) return;
-  txt.textContent = `${d.name} is typing…`;
-  bar.classList.remove('hidden');
-  clearTimeout(window._typingTimer);
-  window._typingTimer = setTimeout(() => bar.classList.add('hidden'), 3000);
-});
+  socket.on('message_deleted', (d) => {
+    const el = document.querySelector(`[data-mid="${d.id}"]`);
+    if (el) {
+      el.querySelector('.msg-bubble').innerHTML =
+        '<div class="msg-text" style="opacity:.5;font-style:italic">Message deleted</div>';
+    }
+  });
+
+  socket.on('message_edited', (m) => {
+    const el = document.querySelector(`[data-mid="${m.id}"] .msg-text`);
+    if (el) el.textContent = m.content;
+  });
+
+  socket.on('user_online', (d) => {
+    if (RECEIVER_ID && d.user_id === RECEIVER_ID) {
+      const sl = document.getElementById('statusLine');
+      if (sl) sl.innerHTML = '<span class="online-badge">Online</span>';
+    }
+  });
+
+  socket.on('read_receipt', () => {
+    document.querySelectorAll('.msg-mine .msg-ticks').forEach(el => {
+      el.className = 'msg-ticks ticks-read';
+      el.textContent = '✓✓';
+    });
+  });
+
+  socket.on('typing', (d) => {
+    if (!RECEIVER_ID || d.user_id !== RECEIVER_ID) return;
+    const bar  = document.getElementById('typingBar');
+    const txt  = document.getElementById('typingText');
+    if (!bar || !txt) return;
+    txt.textContent = `${d.name} is typing…`;
+    bar.classList.remove('hidden');
+    clearTimeout(window._typingTimer);
+    window._typingTimer = setTimeout(() => bar.classList.add('hidden'), 3000);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initChatSocket);
 
 document.getElementById('msgForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -488,7 +495,8 @@ let _te = false;
 document.getElementById('msgInput')?.addEventListener('input', () => {
   if (!_te && RECEIVER_ID) {
     _te = true;
-    socket.emit('typing', { other_id: RECEIVER_ID });
+    const sock = window.socket;
+    if (sock) sock.emit('typing', { other_id: RECEIVER_ID });
     setTimeout(() => { _te = false; }, 2000);
   }
 });

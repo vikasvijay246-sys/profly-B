@@ -154,11 +154,16 @@ async function toggleTenantStatus(tenantId) {
  * Preload links in viewport for instant navigation feel
  */
 (function() {
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const isDataSaving = connection && (connection.saveData || /(2g|slow-2g)/i.test(connection.effectiveType || ''));
+  if (isDataSaving) return;
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting && entry.target.tagName === 'A') {
-        const href = entry.target.getAttribute('href');
-        if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+        const link = entry.target;
+        const href = link.getAttribute('href');
+        if (shouldPrefetch(link, href)) {
           prefetchLink(href);
         }
       }
@@ -168,11 +173,27 @@ async function toggleTenantStatus(tenantId) {
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('a').forEach(link => {
       const href = link.getAttribute('href');
-      if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+      if (shouldPrefetch(link, href)) {
         observer.observe(link);
       }
     });
   });
+
+  function shouldPrefetch(link, href) {
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
+    if (link.target && link.target !== '_self') return false;
+    if (link.hasAttribute('download')) return false;
+    if (link.rel && (link.rel.includes('external') || link.rel.includes('no-prefetch'))) return false;
+    if (link.hasAttribute('data-no-prefetch')) return false;
+    try {
+      const url = new URL(href, location.href);
+      // Avoid prefetching authentication-related endpoints which may perform state-changing GETs
+      if (url.pathname === '/logout' || url.pathname === '/login' || url.pathname.startsWith('/auth')) return false;
+      return url.origin === location.origin && url.pathname !== location.pathname;
+    } catch (err) {
+      return false;
+    }
+  }
 
   function prefetchLink(href) {
     if (document.querySelector(`link[rel="prefetch"][href="${href}"]`)) return;

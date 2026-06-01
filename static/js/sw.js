@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026-05-31-v1';
+const CACHE_VERSION = '2026-06-01-v2';
 const PRECACHE = `propflow-static-${CACHE_VERSION}`;
 const RUNTIME = `propflow-runtime-${CACHE_VERSION}`;
 
@@ -7,10 +7,10 @@ const PRECACHE_URLS = [
   '/static/css/pwa.css',
   '/static/js/main.js',
   '/static/js/worker.js',
-  '/static/icons/icon-192x192.png',
+  // '/static/icons/icon-192x192.png',+
   '/static/icons/icon-512x512.png',
-  '/static/icons/maskable-icon-192x192.png',
-  '/static/icons/maskable-icon-512x512.png',
+  // '/static/icons/maskable-icon-192x192.png',
+  // '/static/icons/maskable-icon-512x512.png',
   '/manifest.json',
   '/offline.html'
 ];
@@ -21,10 +21,30 @@ const NEVER_CACHE_PATHS = ['/login', '/logout', '/auth', '/api', '/chat', '/sock
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(PRECACHE)
-      .then(cache => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
-  );
-});
+      .then(cache => Promise.all(PRECACHE_URLS.map( async url => {
+        try{
+          await cache.add(url);
+          console.log('Cached:',url);
+        }
+        catch(err){
+          console.error('Failed to cache:',url,err);
+        }
+      })
+      )
+      ).then(() => self.skipWaiting())
+    );
+  }); 
+
+
+
+// self.addEventListener('install', event => {
+//   event.waitUntil(
+//     caches.open(PRECACHE)
+//       .then(cache => cache.addAll(PRECACHE_URLS))
+//       .then(() => self.skipWaiting())
+//   );
+  
+// });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
@@ -43,12 +63,14 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname === '/sw.js') return;
 
-  if (NEVER_CACHE_PATHS.some(path => url.pathname.startsWith(path))) {
+  // Navigation requests should always try network first and fall back to offline page.
+  // Other requests may be skipped for caching if they match NEVER_CACHE_PATHS.
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request));
+  if (NEVER_CACHE_PATHS.some(path => url.pathname.startsWith(path))) {
     return;
   }
 
@@ -65,16 +87,30 @@ self.addEventListener('message', event => {
 });
 
 async function networkFirst(request) {
+  // Try network with a short timeout, fall back to a cached navigation if available,
+  // then finally serve the offline shell.
+  const timeoutMs = 8000;
+  const fetchPromise = fetch(request, { credentials: 'same-origin' });
+  const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs));
+
   try {
-    const response = await fetch(request);
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
     if (response && response.ok) {
       return response;
     }
-    throw new Error('Network fetch failed');
   } catch (err) {
-    const cache = await caches.match('/offline.html');
-    return cache || new Response('Offline', { status: 503, statusText: 'Offline' });
+    // swallow and try cache fallbacks below
   }
+
+  // Try to return a cached version of the requested page (if available)
+  try {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+  } catch (err) {}
+
+  // Finally return the offline shell
+  const cache = await caches.match('/offline.html');
+  return cache || new Response('Offline', { status: 503, statusText: 'Offline' });
 }
 
 async function staleWhileRevalidate(request) {
