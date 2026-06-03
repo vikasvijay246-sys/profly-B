@@ -6,11 +6,12 @@ const PRECACHE_URLS = [
   '/static/css/style.css',
   '/static/css/pwa.css',
   '/static/js/main.js',
+  '/static/js/pwa-register.js',
   '/static/js/worker.js',
-  // '/static/icons/icon-192x192.png',+
+  '/static/icons/icon-192x192.png',
+  '/static/icons/icon-192x192-maskable.png',
   '/static/icons/icon-512x512.png',
-  // '/static/icons/maskable-icon-192x192.png',
-  // '/static/icons/maskable-icon-512x512.png',
+  '/static/icons/icon-512x512-maskable.png',
   '/manifest.json',
   '/offline.html'
 ];
@@ -63,10 +64,10 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname === '/sw.js') return;
 
-  // Navigation requests should always try network first and fall back to offline page.
-  // Other requests may be skipped for caching if they match NEVER_CACHE_PATHS.
+  // Navigation requests should serve cached pages immediately when available,
+  // while updating the cache in the background.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request));
+    event.respondWith(navigateHandler(request));
     return;
   }
 
@@ -119,13 +120,61 @@ async function networkFirst(request) {
   return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
 }
 
+async function trimCache(cacheName, maxItems) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxItems) {
+      for (let i = 0; i < keys.length - maxItems; i++) {
+        await cache.delete(keys[i]);
+      }
+    }
+  } catch (err) {
+    console.debug('[SW] trimCache error', err);
+  }
+}
+
+async function navigateHandler(request) {
+  const cache = await caches.open(RUNTIME);
+  const cached = await cache.match(request);
+
+  const networkPromise = fetch(request, { credentials: 'same-origin' })
+    .then(async response => {
+      if (response && response.ok) {
+        await cache.put(request, response.clone());
+        trimCache(RUNTIME, 50);
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    networkPromise.catch(() => {});
+    return cached;
+  }
+
+  const timeoutMs = 4000;
+  const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs));
+
+  try {
+    const response = await Promise.race([networkPromise, timeoutPromise]);
+    if (response) return response;
+  } catch (err) {
+    console.debug('[SW] Navigate failed:', err.message);
+  }
+
+  const offlineCache = await caches.match('/offline.html');
+  return offlineCache || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+}
+
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(PRECACHE);
   const cachedResponse = await cache.match(request);
 
-  const networkPromise = fetch(request).then(response => {
+  const networkPromise = fetch(request).then(async response => {
     if (response && response.ok) {
-      cache.put(request, response.clone());
+      await cache.put(request, response.clone());
+      trimCache(PRECACHE, 200);
     }
     return response;
   }).catch(() => null);

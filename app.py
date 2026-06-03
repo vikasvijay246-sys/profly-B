@@ -30,6 +30,7 @@ def create_app(config_class=Config):
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
     db.init_app(app)
+    Compress(app)
     socketio.init_app(
         app,
         cors_allowed_origins="*",

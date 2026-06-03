@@ -360,18 +360,25 @@ function removeOfflineNotification() {
   offlineNotificationShown = false;
 }
 
+let hadOfflineState = false;
 window.addEventListener('offline', () => {
   console.warn('App lost internet connection');
+  hadOfflineState = true;
   showOfflineNotification();
 });
 
 window.addEventListener('online', () => {
   console.log('App is back online');
-  removeOfflineNotification();
-  // Attempt to reload the page to restore full functionality
-  if (!window.location.href.includes('/login')) {
-    setTimeout(() => window.location.reload(), 500);
+  if (hadOfflineState) {
+    removeOfflineNotification();
+    hadOfflineState = false;
+    if (!window.location.href.includes('/login')) {
+      setTimeout(() => window.location.reload(), 500);
+    }
+    return;
   }
+
+  removeOfflineNotification();
 });
 
 /**
