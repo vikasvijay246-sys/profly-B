@@ -2,6 +2,9 @@ const pwaRegistration = {
   register() {
     if (!('serviceWorker' in navigator)) return;
 
+    // Verify actual network connectivity before proceeding
+    this.verifyNetworkStatus();
+
     window.addEventListener('load', async () => {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js', {
@@ -19,6 +22,40 @@ const pwaRegistration = {
       event.preventDefault();
       window.deferredInstallPrompt = event;
     });
+  },
+
+  verifyNetworkStatus() {
+    // Check both navigator.onLine and actual network connectivity
+    const checkConnection = async () => {
+      try {
+        // Use a simple HEAD request to verify network connectivity
+        // This bypasses aggressive service worker timeouts
+        const response = await fetch('/manifest.json', {
+          method: 'HEAD',
+          credentials: 'omit',
+          cache: 'no-cache',
+          mode: 'no-cors'
+        });
+        return response.ok || response.type === 'opaque';
+      } catch (err) {
+        return false;
+      }
+    };
+
+    // If navigator says we're offline, respect that
+    if (!navigator.onLine) {
+      console.warn('[PWA] Device reports offline status');
+      return;
+    }
+
+    // Periodically verify connectivity (every 30 seconds)
+    setInterval(async () => {
+      const isConnected = await checkConnection();
+      window.__pf_has_network = isConnected;
+      if (!isConnected && navigator.onLine) {
+        console.warn('[PWA] Lost network connectivity despite navigator.onLine=true');
+      }
+    }, 30000);
   },
 
   watchUpdate(registration) {

@@ -717,7 +717,22 @@ textarea.form-input { resize: vertical; }
 .demo-btn span   { font-size: 10px; opacity: .8; }
 
 /* ── Sidebar overlay ────────────────────────────────── */
-.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 199; }
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s ease;
+  z-index: 199;
+}
+.sidebar-overlay.open {
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
 
 /* ── Utilities ──────────────────────────────────────── */
 .text-muted    { color: var(--muted); }
@@ -737,9 +752,19 @@ textarea.form-input { resize: vertical; }
 @media (max-width: 768px) {
   :root { --sidebar-w: 260px; }
 
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.3); }
-  .sidebar-overlay.open { display: block; }
+  .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform .25s ease, visibility .25s ease;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: 4px 0 24px rgba(0,0,0,.3);
+  }
+  .sidebar-overlay.open {
+    display: block;
+  }
 
   .main-wrap  { margin-left: 0; }
   .hamburger  { display: flex; }

@@ -87,19 +87,21 @@ self.addEventListener('message', event => {
 });
 
 async function networkFirst(request) {
-  // Try network with a short timeout, fall back to a cached navigation if available,
-  // then finally serve the offline shell.
-  const timeoutMs = 8000;
+  // Try network with a reasonable timeout
+  const timeoutMs = 4000;
   const fetchPromise = fetch(request, { credentials: 'same-origin' });
   const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs));
 
   try {
     const response = await Promise.race([fetchPromise, timeoutPromise]);
-    if (response && response.ok) {
+    // Return any response (including errors like 401, 404, etc.)
+    // DO NOT check response.ok - errors should be passed through to the client
+    if (response) {
       return response;
     }
   } catch (err) {
-    // swallow and try cache fallbacks below
+    // Network error or timeout occurred
+    console.debug('[SW] Network failed:', err.message);
   }
 
   // Try to return a cached version of the requested page (if available)
@@ -108,9 +110,13 @@ async function networkFirst(request) {
     if (cached) return cached;
   } catch (err) {}
 
-  // Finally return the offline shell
-  const cache = await caches.match('/offline.html');
-  return cache || new Response('Offline', { status: 503, statusText: 'Offline' });
+  // Last resort: serve offline shell
+  try {
+    const offlineCache = await caches.match('/offline.html');
+    if (offlineCache) return offlineCache;
+  } catch (err) {}
+
+  return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
 }
 
 async function staleWhileRevalidate(request) {

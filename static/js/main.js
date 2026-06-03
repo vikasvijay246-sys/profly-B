@@ -38,12 +38,21 @@ window.addEventListener('resize', () => {
 
 window.addEventListener('popstate', closeSidebar);
 window.addEventListener('hashchange', closeSidebar);
+window.addEventListener('pageshow', () => {
+  closeSidebar();
+});
 
 document.addEventListener('click', function(event) {
   const overlay = document.getElementById('sidebarOverlay');
   if (overlay && event.target === overlay) {
     closeSidebar();
   }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+    link.addEventListener('click', closeSidebar);
+  });
 });
 
 /* ── Dark mode ────────────────────────────────────────── */
@@ -315,14 +324,54 @@ document.addEventListener('touchmove', (e) => {
 
 /**
  * Network Status Indicator
- * Visual feedback for offline state (optional - can be extended)
+ * Visual feedback for offline state with recovery
  */
+let offlineNotificationShown = false;
+
+function showOfflineNotification() {
+  if (offlineNotificationShown) return;
+  offlineNotificationShown = true;
+  
+  const notification = document.createElement('div');
+  notification.id = 'offline-notification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: #dc2626;
+    color: white;
+    padding: 12px 16px;
+    text-align: center;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  `;
+  notification.textContent = '⚠️ No internet connection. Changes may not sync.';
+  document.body.insertBefore(notification, document.body.firstChild);
+}
+
+function removeOfflineNotification() {
+  const notification = document.getElementById('offline-notification');
+  if (notification) {
+    notification.style.animation = 'slideUp 0.3s ease forwards';
+    setTimeout(() => notification.remove(), 300);
+  }
+  offlineNotificationShown = false;
+}
+
 window.addEventListener('offline', () => {
-  console.log('App is offline');
+  console.warn('App lost internet connection');
+  showOfflineNotification();
 });
 
 window.addEventListener('online', () => {
   console.log('App is back online');
+  removeOfflineNotification();
+  // Attempt to reload the page to restore full functionality
+  if (!window.location.href.includes('/login')) {
+    setTimeout(() => window.location.reload(), 500);
+  }
 });
 
 /**
