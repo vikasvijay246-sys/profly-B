@@ -2,13 +2,15 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"/>
   <meta name="theme-color" content="#1f2937"/>
+  <meta name="color-scheme" content="light dark"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="PropFlow"/>
   <meta name="description" content="Property & Tenant Management System"/>
+  <meta name="apple-mobile-web-app-status-bar" content="black-translucent"/>
   <link rel="preconnect" href="https://cdn.socket.io" crossorigin/>
   <link rel="dns-prefetch" href="https://cdn.socket.io"/>
   <link rel="manifest" href="{{ url_for('manifest') }}"/>
@@ -124,9 +126,11 @@
   </main>
 </div>
 
-<!-- SocketIO -->
-<link rel="preconnect" href="https://cdn.socket.io" crossorigin>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
+<!-- SocketIO & App Modules -->
+<link rel=\"preconnect\" href=\"https://cdn.socket.io\" crossorigin>
+<script src=\"https://cdn.socket.io/4.7.2/socket.io.min.js\" defer></script>
+<script src=\"{{ url_for('static', filename='js/notifications.js') }}\" defer></script>
+<script src=\"{{ url_for('static', filename='js/file-manager.js') }}\" defer></script>
 <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/pwa-register.js') }}" defer></script>
 

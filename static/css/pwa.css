@@ -287,12 +287,47 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ── Smooth Page Transitions ─────────────────────────────── */
+.page-content {
+  animation: pageEnter 0.3s var(--transition-easing);
+}
+
 .page-transition-enter {
   animation: pageEnter 0.3s var(--transition-easing) forwards;
 }
 
 .page-transition-exit {
   animation: pageExit 0.2s var(--transition-easing) forwards;
+}
+
+/* Swipe navigation support */
+.page-swipe-back {
+  animation: pageSwipeBack 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.page-swipe-forward {
+  animation: pageSwipeForward 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes pageSwipeBack {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pageSwipeForward {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes pageEnter {

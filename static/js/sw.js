@@ -1,12 +1,15 @@
-const CACHE_VERSION = '2026-06-01-v2';
+const CACHE_VERSION = '2026-06-01-v3';
 const PRECACHE = `propflow-static-${CACHE_VERSION}`;
 const RUNTIME = `propflow-runtime-${CACHE_VERSION}`;
+const IMAGES_CACHE = `propflow-images-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
   '/static/css/style.css',
   '/static/css/pwa.css',
   '/static/js/main.js',
   '/static/js/pwa-register.js',
+  '/static/js/notifications.js',
+  '/static/js/file-manager.js',
   '/static/js/worker.js',
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-192x192-maskable.png',
