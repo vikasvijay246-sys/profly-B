@@ -8,6 +8,7 @@
     <div>
       <h2 style="margin:0 0 8px;">{{ worker.full_name }}</h2>
       <p style="margin:0;color:var(--text-muted);font-size:0.95rem;">Role: {{ worker.role }} • Phone: {{ worker.phone_number }}</p>
+      <p style="margin:4px 0 0;font-size:0.92rem;color:var(--text-muted);">Type: {{ 'Temporary' if worker.is_temp else 'Permanent' }} • Salary: {{ worker.salary_type|capitalize }}{% if worker.salary_amount %} ₹{{ '{:,.0f}'.format(worker.salary_amount) }}{% endif %}</p>
       {% if worker.joined_date %}
       <p style="margin:8px 0 0;font-size:0.9rem;color:var(--text-muted);">Joined {{ worker.joined_date }}</p>
       {% endif %}

@@ -327,58 +327,159 @@ document.addEventListener('touchmove', (e) => {
  * Visual feedback for offline state with recovery
  */
 let offlineNotificationShown = false;
+let statusBannerTimeout = null;
 
-function showOfflineNotification() {
-  if (offlineNotificationShown) return;
-  offlineNotificationShown = true;
-  
-  const notification = document.createElement('div');
-  notification.id = 'offline-notification';
-  notification.style.cssText = `
+function createConnectionOverlay() {
+  let overlay = document.getElementById('network-weak-overlay');
+  if (overlay) return overlay;
+
+  overlay = document.createElement('div');
+  overlay.id = 'network-weak-overlay';
+  overlay.style.cssText = `
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 9999;
-    background: #dc2626;
-    color: white;
-    padding: 12px 16px;
-    text-align: center;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   `;
-  notification.textContent = '⚠️ No internet connection. Changes may not sync.';
-  document.body.insertBefore(notification, document.body.firstChild);
+
+  const loader = document.createElement('div');
+  loader.className = 'network-weak-loader';
+  loader.innerHTML = '<span></span>';
+  overlay.appendChild(loader);
+  document.body.appendChild(overlay);
+  return overlay;
 }
 
-function removeOfflineNotification() {
+function showConnectionSpinner() {
+  createConnectionOverlay();
+}
+
+function hideConnectionSpinner() {
+  const overlay = document.getElementById('network-weak-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+function showNetworkNotification(text, bgColor) {
+  let notification = document.getElementById('offline-notification');
+  if (!notification) {
+    notification = document.createElement('div');
+    notification.id = 'offline-notification';
+    notification.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      color: white;
+      padding: 12px 16px;
+      text-align: center;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    document.body.insertBefore(notification, document.body.firstChild);
+  }
+  if (statusBannerTimeout) {
+    clearTimeout(statusBannerTimeout);
+    statusBannerTimeout = null;
+  }
+  notification.style.background = bgColor;
+  notification.textContent = text;
+  offlineNotificationShown = true;
+}
+
+function hideNetworkNotification() {
   const notification = document.getElementById('offline-notification');
   if (notification) {
     notification.style.animation = 'slideUp 0.3s ease forwards';
     setTimeout(() => notification.remove(), 300);
   }
   offlineNotificationShown = false;
+  if (statusBannerTimeout) {
+    clearTimeout(statusBannerTimeout);
+    statusBannerTimeout = null;
+  }
 }
 
-let hadOfflineState = false;
-window.addEventListener('offline', () => {
-  console.warn('App lost internet connection');
-  hadOfflineState = true;
-  showOfflineNotification();
-});
+function isConnectionWeak() {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!conn) return false;
+  const slowTypes = ['slow-2g', '2g'];
+  return conn.saveData || slowTypes.includes(conn.effectiveType) || (conn.downlink && conn.downlink < 0.75);
+}
 
-window.addEventListener('online', () => {
-  console.log('App is back online');
-  if (hadOfflineState) {
-    removeOfflineNotification();
-    hadOfflineState = false;
-    if (!window.location.href.includes('/login')) {
-      setTimeout(() => window.location.reload(), 500);
-    }
+async function verifyRealNetwork() {
+  if (!navigator.onLine) return false;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch('/manifest.json', {
+      method: 'HEAD',
+      cache: 'no-cache',
+      credentials: 'omit',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response.ok || response.type === 'opaque';
+  } catch (err) {
+    return false;
+  }
+}
+
+async function updateNetworkBanner() {
+  if (!navigator.onLine) {
+    hideConnectionSpinner();
+    showNetworkNotification('⚠️ No internet connection. Changes will sync once online.', '#dc2626');
     return;
   }
 
-  removeOfflineNotification();
+  const weak = isConnectionWeak();
+  const connected = await verifyRealNetwork();
+
+  if (!connected) {
+    hideNetworkNotification();
+    showConnectionSpinner();
+    return;
+  }
+
+  if (weak) {
+    hideNetworkNotification();
+    showConnectionSpinner();
+    return;
+  }
+
+  hideConnectionSpinner();
+  hideNetworkNotification();
+}
+
+window.addEventListener('offline', () => {
+  console.warn('App lost internet connection');
+  hideConnectionSpinner();
+  showNetworkNotification('⚠️ No internet connection. Changes will sync once online.', '#dc2626');
+});
+
+window.addEventListener('online', async () => {
+  console.log('App is back online');
+  await updateNetworkBanner();
+});
+
+if ('connection' in navigator) {
+  navigator.connection.addEventListener('change', () => {
+    updateNetworkBanner();
+  });
+}
+
+setInterval(() => {
+  if (!navigator.onLine) return;
+  updateNetworkBanner();
+}, 15000);
+
+window.addEventListener('DOMContentLoaded', () => {
+  updateNetworkBanner();
 });
 
 /**

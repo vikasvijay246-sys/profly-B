@@ -702,6 +702,7 @@ def maintenance():
     property_id = None
     worker_id = None
     status_filter = request.args.get("status", "").strip().lower()
+    worker_type = request.args.get("worker_type", "").strip().lower()
     category_filter = request.args.get("category", "").strip().lower()
     expense_type = request.args.get("expense_type", "").strip().lower()
 
@@ -719,6 +720,7 @@ def maintenance():
         worker_id = None
 
     properties = Property.query.filter_by(owner_id=current_user.id, is_deleted=False).order_by(Property.name).all()
+    current_property = next((p for p in properties if p.id == property_id), None)
     workers_q = Worker.query.filter_by(owner_id=current_user.id)
     if search:
         workers_q = workers_q.filter(
@@ -732,6 +734,8 @@ def maintenance():
         workers_q = workers_q.filter(Worker.assigned_properties.any(id=property_id))
     if status_filter in ("active", "inactive"):
         workers_q = workers_q.filter_by(active_status=(status_filter == "active"))
+    if worker_type in ("permanent", "temporary"):
+        workers_q = workers_q.filter_by(is_temp=(worker_type == "temporary"))
     worker_page = max(1, int(request.args.get("worker_page", 1)))
     workers = workers_q.order_by(Worker.active_status.desc(), Worker.full_name).paginate(page=worker_page, per_page=20, error_out=False)
 
@@ -812,6 +816,7 @@ def maintenance():
         current_property_id=property_id,
         current_worker_id=worker_id,
         current_status=status_filter,
+        current_worker_type=worker_type,
         current_category=category_filter,
         current_expense_type=expense_type,
         search=search,
@@ -824,6 +829,7 @@ def maintenance():
         urgent_complaints=urgent_complaints,
         monthly_expenses=expenses_month,
         completed_today=completed_today,
+        current_property=current_property,
     )
 
 
@@ -852,8 +858,9 @@ def add_worker():
             notes=notes,
         )
 
-        property_ids = [optional_id(pid, "assigned_property_ids") for pid in request.form.getlist("assigned_property_ids") if pid]
-        for pid in set(property_ids):
+        assigned_property_id = request.form.get("assigned_property_id")
+        if assigned_property_id:
+            pid = optional_id(assigned_property_id, "assigned_property_id")
             prop = Property.query.filter_by(id=pid, owner_id=current_user.id, is_deleted=False).first()
             if not prop:
                 raise ValidationError("Invalid property selected for worker assignment.")

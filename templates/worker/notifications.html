@@ -1,17 +1,42 @@
 {% extends "worker/base.html" %}
 {% block title %}Alerts{% endblock %}
 {% block content %}
-<form method="POST" action="{{ url_for('worker.notifications_read') }}" style="margin-bottom:12px;">
+<form method="POST" action="{{ url_for('worker.notifications_read') }}" style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
   <button type="submit" class="worker-btn worker-btn-secondary">Mark all read</button>
+  <a href="{{ url_for('worker.dashboard') }}" class="worker-btn worker-btn-primary">Back to dashboard</a>
 </form>
 
+{% if complaint_alerts %}
+<h2 class="section-title">Alerts from tenants</h2>
+{% for complaint in complaint_alerts %}
+<div class="worker-card" style="border-left:4px solid #f97316;">
+  <p class="worker-card-title" style="font-size:0.95rem;">{{ complaint.issue_title }}</p>
+  <p class="worker-card-meta">{{ complaint.issue_description or 'No description provided.' }}</p>
+  <p style="margin:8px 0 4px;font-size:0.9rem;color:var(--text-muted);">Property: {{ complaint.property.name if complaint.property else '—' }} · Tenant: {{ complaint.tenant.full_name if complaint.tenant else '—' }}</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <form method="POST" action="{{ url_for('worker.respond_complaint', cid=complaint.id) }}">
+      <input type="hidden" name="action" value="accept">
+      <button type="submit" class="worker-btn worker-btn-primary">Accept</button>
+    </form>
+    <form method="POST" action="{{ url_for('worker.respond_complaint', cid=complaint.id) }}">
+      <input type="hidden" name="action" value="reject">
+      <button type="submit" class="worker-btn worker-btn-secondary" style="background:#fde68a;color:#92400e;">Reject</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+<hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+{% endif %}
+
+{% if notifications %}
 {% for n in notifications %}
 <div class="worker-card" style="{% if not n.is_read %}border-left:3px solid #0f766e;{% endif %}">
   <p class="worker-card-title" style="font-size:0.95rem;">{{ n.title }}</p>
   <p class="worker-card-meta">{{ n.body }}</p>
   <small style="color:var(--text-muted);">{{ n.created_at }}</small>
 </div>
-{% else %}
-<p style="text-align:center;color:var(--text-muted);">No alerts.</p>
 {% endfor %}
+{% elif not complaint_alerts %}
+<p style="text-align:center;color:var(--text-muted);">No alerts.</p>
+{% endif %}
 {% endblock %}

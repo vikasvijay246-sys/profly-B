@@ -43,10 +43,18 @@
     <form method="GET" class="grid" style="gap:10px;">
       <input type="hidden" name="section" value="{{ section }}">
       <div><input type="text" name="search" value="{{ search }}" class="form-input" placeholder="Search workers, tasks or notes"></div>
-      <div><select name="property_id" class="form-input"><option value="">All properties</option>{% for prop in properties %}<option value="{{ prop.id }}" {% if prop.id == current_property_id %}selected{% endif %}>{{ prop.name }}</option>{% endfor %}</select></div>
+      <div>
+        {% if current_property_id %}
+          <input type="hidden" name="property_id" value="{{ current_property_id }}">
+          <div class="form-input" style="display:flex;align-items:center;justify-content:space-between;">Property: <strong>{{ current_property.name if current_property else '—' }}</strong></div>
+        {% else %}
+          <select name="property_id" class="form-input"><option value="">All properties</option>{% for prop in properties %}<option value="{{ prop.id }}" {% if prop.id == current_property_id %}selected{% endif %}>{{ prop.name }}</option>{% endfor %}</select>
+        {% endif %}
+      </div>
       <div><select name="worker_id" class="form-input"><option value="">All workers</option>{% for worker in workers.items if section != 'workers' %}<option value="{{ worker.id }}" {% if worker.id == current_worker_id %}selected{% endif %}>{{ worker.full_name }}</option>{% endfor %}</select></div>
       {% if section == 'workers' %}
         <div><select name="status" class="form-input"><option value="">All statuses</option><option value="active" {% if current_status == 'active' %}selected{% endif %}>Active</option><option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactive</option></select></div>
+        <div><select name="worker_type" class="form-input"><option value="">All workers</option><option value="permanent" {% if current_worker_type == 'permanent' %}selected{% endif %}>Permanent</option><option value="temporary" {% if current_worker_type == 'temporary' %}selected{% endif %}>Temporary</option></select></div>
       {% elif section == 'tasks' %}
         <div><select name="status" class="form-input"><option value="">All statuses</option><option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option><option value="working" {% if current_status == 'working' %}selected{% endif %}>Working</option><option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Completed</option><option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>Cancelled</option></select></div>
       {% elif section == 'complaints' %}
@@ -99,15 +107,21 @@
       <textarea name="notes" class="form-input" rows="3" placeholder="Notes or instructions"></textarea>
       {% if properties %}
       <div style="display:grid;gap:8px;">
-        <div style="font-size:0.95rem;font-weight:600;color:var(--text);">Assign to properties</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
-          {% for prop in properties %}
-          <label class="checkbox-label"><input type="checkbox" name="assigned_property_ids" value="{{ prop.id }}"> {{ prop.name }}</label>
-          {% endfor %}
-        </div>
+        <div style="font-size:0.95rem;font-weight:600;color:var(--text);">Assign to one property</div>
+        {% if current_property_id %}
+          <input type="hidden" name="assigned_property_id" value="{{ current_property_id }}">
+          <div class="form-input" style="display:flex;align-items:center;justify-content:space-between;">Property: <strong>{{ current_property.name if current_property else '—' }}</strong></div>
+        {% else %}
+          <select name="assigned_property_id" class="form-input">
+            <option value="">Choose property</option>
+            {% for prop in properties %}
+            <option value="{{ prop.id }}" {% if prop.id == current_property_id %}selected{% endif %}>{{ prop.name }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
       </div>
       {% endif %}
-      <label class="checkbox-label"><input type="checkbox" name="is_temp" value="1"> Temporary worker (no app login)</label>
+      <label class="checkbox-label"><input type="checkbox" name="is_temp" value="1"> Temporary worker (task-based, no app login)</label>
       <label class="checkbox-label"><input type="checkbox" name="enable_login" value="1" id="enableLoginCb"> Enable worker app login</label>
       <input type="email" name="email" class="form-input" placeholder="Email for login (optional)">
       <input type="password" name="portal_password" class="form-input" placeholder="App password (if login enabled)" id="portalPw">
@@ -125,7 +139,7 @@
         {% for worker in workers.items %}
         <tr>
           <td><a href="{{ url_for('owner.worker_dashboard', wid=worker.id) }}" style="color:inherit;text-decoration:none;font-weight:600;">{{ worker.full_name }}</a><br><small>{{ worker.phone_number }}</small></td>
-          <td>{{ worker.role }}</td>
+          <td>{{ worker.role }}<br><small>{{ 'Temporary' if worker.is_temp else 'Permanent' }}</small></td>
           <td>{% for prop in worker.assigned_properties %}<span class="maintenance-tag">{{ prop.name }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</td>
           <td>{{ 'Active' if worker.active_status else 'Inactive' }}</td>
           <td>
@@ -160,7 +174,12 @@
       <input type="text" name="title" class="form-input" placeholder="Task title" required>
       <textarea name="description" class="form-input" rows="3" placeholder="Description"></textarea>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+        {% if current_property_id %}
+          <input type="hidden" name="property_id" value="{{ current_property_id }}">
+          <div class="form-input" style="display:flex;align-items:center;justify-content:space-between;">Property: <strong>{{ current_property.name if current_property else '—' }}</strong></div>
+        {% else %}
+          <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+        {% endif %}
         <input type="text" name="room_number" class="form-input" placeholder="Room number">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -221,7 +240,12 @@
     <form method="POST" action="{{ url_for('owner.add_complaint') }}" class="grid" style="gap:12px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <input type="number" name="tenant_id" class="form-input" placeholder="Tenant ID" required>
-        <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+        {% if current_property_id %}
+          <input type="hidden" name="property_id" value="{{ current_property_id }}">
+          <div class="form-input" style="display:flex;align-items:center;justify-content:space-between;">Property: <strong>{{ current_property.name if current_property else '—' }}</strong></div>
+        {% else %}
+          <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+        {% endif %}
       </div>
       <input type="text" name="room_number" class="form-input" placeholder="Room number">
       <input type="text" name="issue_title" class="form-input" placeholder="Issue title" required>
@@ -277,7 +301,12 @@
   <div class="card-header"><h2>Record Expense</h2></div>
   <div class="card-body">
     <form method="POST" action="{{ url_for('owner.add_expense') }}" class="grid" style="gap:12px;">
-      <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+      {% if current_property_id %}
+        <input type="hidden" name="property_id" value="{{ current_property_id }}">
+        <div class="form-input" style="display:flex;align-items:center;justify-content:space-between;">Property: <strong>{{ current_property.name if current_property else '—' }}</strong></div>
+      {% else %}
+        <select name="property_id" class="form-input" required><option value="">Select property</option>{% for prop in properties %}<option value="{{ prop.id }}">{{ prop.name }}</option>{% endfor %}</select>
+      {% endif %}
       <select name="expense_type" class="form-input" required>
         <option value="salary">Salary</option><option value="repair">Repair</option><option value="electricity">Electricity</option><option value="wifi">WiFi</option><option value="gas">Gas</option><option value="groceries">Groceries</option><option value="furniture">Furniture</option><option value="maintenance">Maintenance</option><option value="water">Water</option><option value="miscellaneous">Miscellaneous</option>
       </select>

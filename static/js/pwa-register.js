@@ -48,7 +48,16 @@ const pwaRegistration = {
       return;
     }
 
-    // Periodically verify connectivity (every 30 seconds)
+    // Expose real connectivity state for other shell logic.
+    window.__pf_has_network = true;
+    window.addEventListener('online', () => {
+      window.__pf_has_network = true;
+    });
+    window.addEventListener('offline', () => {
+      window.__pf_has_network = false;
+    });
+
+    // Periodically verify connectivity (every 30 seconds).
     setInterval(async () => {
       const isConnected = await checkConnection();
       window.__pf_has_network = isConnected;

@@ -11,6 +11,24 @@
   <div class="worker-stat"><strong>{{ completed_tasks|length }}</strong><small>Done</small></div>
 </div>
 
+{% if active_alerts %}
+<div class="worker-alerts-summary" style="margin:16px 0;display:grid;gap:10px;">
+  <div class="worker-card urgent" style="padding:14px;background:#fff5f5;border:1px solid #fca5a5;">
+    <p class="worker-card-title">Alert messages</p>
+    <p class="worker-card-meta">You have {{ active_alerts|length }} active tenant alerts in your assigned property.</p>
+    <a href="{{ url_for('worker.notifications') }}" class="worker-btn worker-btn-secondary" style="width:max-content;">View alerts</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="worker-category-chips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+  <a href="{{ url_for('worker.tasks', tab='today', category='cleaning') }}" class="worker-chip">Cleaning</a>
+  <a href="{{ url_for('worker.tasks', tab='today', category='water') }}" class="worker-chip">Water</a>
+  <a href="{{ url_for('worker.tasks', tab='today', category='food') }}" class="worker-chip">Food</a>
+  <a href="{{ url_for('worker.tasks', tab='today', category='bathroom') }}" class="worker-chip">Bathroom</a>
+  <a href="{{ url_for('worker.tasks', tab='today', category='prep') }}" class="worker-chip">Prep</a>
+</div>
+
 {% if urgent_tasks %}
 <div class="worker-section-title">Urgent</div>
 {% for task in urgent_tasks[:5] %}

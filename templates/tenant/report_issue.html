@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Report Alert — PropFlow{% endblock %}
+{% block page_title %}Report an Alert{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:700px;margin:0 auto;">
+  <div class="card-header"><h2>Report an issue for {{ property.name }}</h2></div>
+  <div class="card-body">
+    <p class="text-muted">Room: {{ room.room_number }} · Property: {{ property.address }}, {{ property.city }}</p>
+    <form method="POST" class="grid" style="gap:14px;">
+      <input type="text" name="issue_title" class="form-input" placeholder="What needs attention?" required>
+      <select name="issue_category" class="form-input" required>
+        <option value="cleaning">Cleaning</option>
+        <option value="water">Water</option>
+        <option value="bathroom">Bathroom</option>
+        <option value="electricity">Electricity</option>
+        <option value="appliance">Appliance</option>
+        <option value="internet">Internet</option>
+        <option value="general">General</option>
+      </select>
+      <textarea name="issue_description" class="form-input" rows="5" placeholder="Describe the alert in a few words."></textarea>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Send alert</button>
+        <a href="{{ url_for('tenant.dashboard') }}" class="btn btn-ghost">Back to dashboard</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func as sqlfunc
-from models import db, Payment, PropertyTenant, Notification, RoomTenant, Message, VacateRequest, now_utc
+from models import db, Payment, Property, PropertyTenant, Notification, RoomTenant, TenantComplaint, Message, VacateRequest, now_utc
 from routes import role_required
 from services import tenant_payment_history, fmt_month, TenantService, push_notification
 from utils.errors import AppError
@@ -136,6 +136,60 @@ def notifications():
     notifs = (Notification.query.filter_by(user_id=current_user.id)
               .order_by(Notification.created_at.desc()).all())
     return render_template("tenant/notifications.html", notifications=notifs)
+
+
+@tenant_bp.route("/report-issue", methods=["GET", "POST"])
+@login_required
+@role_required("tenant")
+def report_issue():
+    active_room = RoomTenant.query.filter_by(tenant_id=current_user.id, is_active=True).first()
+    if not active_room:
+        flash("No active room found. Please contact your owner.", "error")
+        return redirect(url_for("tenant.dashboard"))
+
+    room = getattr(active_room, "room", None)
+    prop = getattr(room, "prop", None)
+    if not prop:
+        flash("Unable to determine property for your room.", "error")
+        return redirect(url_for("tenant.dashboard"))
+
+    if request.method == "POST":
+        title = request.form.get("issue_title", "").strip()
+        category = request.form.get("issue_category", "").strip() or "general"
+        description = request.form.get("issue_description", "").strip()
+        if not title:
+            flash("Please enter a short title for your alert.", "error")
+            return redirect(url_for("tenant.report_issue"))
+
+        complaint = TenantComplaint(
+            tenant_id=current_user.id,
+            property_id=prop.id,
+            room_number=room.room_number if room else None,
+            issue_title=title,
+            issue_description=description,
+            issue_category=category,
+            status="pending",
+            owner_id=prop.owner_id,
+        )
+        db.session.add(complaint)
+        db.session.commit()
+
+        try:
+            from app import socketio
+            push_notification(
+                socketio,
+                prop.owner_id,
+                "Tenant Alert Received",
+                f"{current_user.full_name} reported: {title}",
+                "tenant_alert",
+            )
+        except Exception:
+            push_notification(None, prop.owner_id, "Tenant Alert Received", f"{current_user.full_name} reported: {title}", "tenant_alert")
+
+        flash("✅ Alert sent. Owner and workers will see it.", "success")
+        return redirect(url_for("tenant.dashboard"))
+
+    return render_template("tenant/report_issue.html", property=prop, room=room)
 
 
 @tenant_bp.route("/vacate-notice", methods=["GET", "POST"])

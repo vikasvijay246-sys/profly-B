@@ -88,8 +88,8 @@ self.addEventListener('message', event => {
 });
 
 async function networkFirst(request) {
-  // Try network with a reasonable timeout
-  const timeoutMs = 4000;
+  // Try network with a reasonable timeout, but allow slow connections enough time to recover.
+  const timeoutMs = 8000;
   const fetchPromise = fetch(request, { credentials: 'same-origin' });
   const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs));
 
@@ -153,7 +153,7 @@ async function navigateHandler(request) {
     return cached;
   }
 
-  const timeoutMs = 4000;
+  const timeoutMs = 8000;
   const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs));
 
   try {

@@ -138,6 +138,48 @@ a.btn:active,
   to { transform: rotate(360deg); }
 }
 
+#network-weak-overlay {
+  pointer-events: none;
+}
+
+.network-weak-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.network-weak-loader::before,
+.network-weak-loader::after,
+.network-weak-loader > span {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+  animation: weakPulse 1s ease-in-out infinite;
+}
+
+.network-weak-loader > span {
+  animation-delay: 0.15s;
+}
+
+.network-weak-loader::after {
+  animation-delay: 0.3s;
+}
+
+@keyframes weakPulse {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
 .skeleton {
   background: linear-gradient(90deg, rgba(200,200,200,0.3) 25%, rgba(200,200,200,0.5) 50%, rgba(200,200,200,0.3) 75%);
   background-size: 200% 100%;

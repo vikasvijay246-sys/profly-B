@@ -11,7 +11,7 @@ from flask import (
 )
 from flask_login import login_required, current_user
 
-from models import db, Worker, MaintenanceTask, Notification, PropertyExpense, now_utc
+from models import db, Worker, MaintenanceTask, Notification, PropertyExpense, TenantComplaint, now_utc
 from routes import role_required
 from services.worker_task import WorkerTaskService
 from services.notification import NotificationService
@@ -53,6 +53,13 @@ def dashboard():
     completed = _svc.list_tasks(w.id, status="completed", limit=10)
     salary = _svc.salary_summary(w.id)
     unread = NotificationService().unread_count(current_user.id)
+
+    prop_ids = [p.id for p in _svc.assigned_properties(w.id)]
+    active_alerts = TenantComplaint.query.filter(
+        TenantComplaint.property_id.in_(prop_ids),
+        TenantComplaint.status == "pending"
+    ).order_by(TenantComplaint.created_at.desc()).limit(6).all() if prop_ids else []
+
     return render_template(
         "worker/dashboard.html",
         worker=w,
@@ -62,6 +69,7 @@ def dashboard():
         completed_tasks=completed,
         salary=salary,
         unread_count=unread,
+        active_alerts=active_alerts,
     )
 
 
@@ -71,6 +79,7 @@ def dashboard():
 def tasks():
     w = _worker()
     tab = request.args.get("tab", "pending")
+    category = request.args.get("category", "").strip()
     if tab == "today":
         items = _svc.list_tasks(w.id, today_only=True, limit=80)
     elif tab == "completed":
@@ -79,8 +88,12 @@ def tasks():
         items = _svc.list_tasks(w.id, status=("pending", "working"), urgent_only=True, limit=80)
     else:
         items = _svc.list_tasks(w.id, status=("pending", "working"), limit=80)
+
+    if category:
+        items = [task for task in items if category.lower() in (task.title or "").lower() or category.lower() in (task.description or "").lower() or category.lower() in (task.room_number or "").lower()]
+
     return render_template(
-        "worker/tasks.html", worker=w, tasks=items, tab=tab,
+        "worker/tasks.html", worker=w, tasks=items, tab=tab, category=category,
     )
 
 
@@ -172,7 +185,12 @@ def notifications():
         .limit(60)
         .all()
     )
-    return render_template("worker/notifications.html", worker=w, notifications=items)
+    prop_ids = [p.id for p in _svc.assigned_properties(w.id)]
+    complaint_alerts = TenantComplaint.query.filter(
+        TenantComplaint.property_id.in_(prop_ids),
+        TenantComplaint.status == "pending"
+    ).order_by(TenantComplaint.created_at.desc()).limit(20).all() if prop_ids else []
+    return render_template("worker/notifications.html", worker=w, notifications=items, complaint_alerts=complaint_alerts)
 
 
 @worker_bp.route("/notifications/read", methods=["POST"])
@@ -182,6 +200,39 @@ def notifications_read():
     NotificationService().mark_all_read(current_user.id)
     if request.is_json:
         return jsonify({"ok": True})
+    return redirect(url_for("worker.notifications"))
+
+
+@worker_bp.route("/complaints/<int:cid>/respond", methods=["POST"])
+@login_required
+@role_required("worker")
+def respond_complaint(cid):
+    w = _worker()
+    action = request.form.get("action", "").strip().lower()
+    complaint = TenantComplaint.query.filter_by(id=cid, status="pending").first_or_404()
+    prop_ids = [p.id for p in _svc.assigned_properties(w.id)]
+    if complaint.property_id not in prop_ids:
+        flash("You cannot respond to alerts outside your assigned properties.", "error")
+        return redirect(url_for("worker.notifications"))
+
+    if action == "accept":
+        complaint.assigned_worker_id = w.id
+        flash_msg = "Alert accepted. Tenant notified."
+        notif_title = "Alert accepted"
+        notif_body = f"{w.full_name} will handle your alert: {complaint.issue_title}."
+    elif action == "reject":
+        complaint.status = "cancelled"
+        flash_msg = "Alert rejected. Tenant notified."
+        notif_title = "Alert rejected"
+        notif_body = f"{w.full_name} declined your alert: {complaint.issue_title}. The owner will review."
+    else:
+        flash("Invalid response action.", "error")
+        return redirect(url_for("worker.notifications"))
+
+    db.session.commit()
+    if complaint.tenant:
+        NotificationService().push(_socketio(), complaint.tenant.id, notif_title, notif_body, "alert_response")
+    flash(flash_msg, "success")
     return redirect(url_for("worker.notifications"))
 
 

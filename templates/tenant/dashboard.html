@@ -74,6 +74,7 @@
     <span>🔔</span>Alerts
     {% if stats.unread_notifs > 0 %}<span class="unread-dot" style="font-size:10px">{{ stats.unread_notifs }}</span>{% endif %}
   </a>
+  <a href="{{ url_for('tenant.report_issue') }}" class="qa-btn"><span>⚠️</span>Report Alert</a>
   <a href="{{ url_for('chat.index') }}"           class="qa-btn"><span>💬</span>Message</a>
   <a href="{{ url_for('tenant.vacate_notice') }}" class="qa-btn qa-btn-accent"><span>📨</span>Request Vacate</a>
   <a href="{{ url_for('tenant.payment_history') }}" class="qa-btn"><span>📋</span>History</a>
